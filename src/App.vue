@@ -25,10 +25,10 @@
       config: {
         path: "/model/heli.glb",
         options: {
-          scale: 0.5,
+          scale: 1.5,
           position: new THREE.Vector3(0, 0, 0),
         },
-        autoRotate: true,
+        // autoRotate: true,
         floatAnimation: true,
       },
     },
