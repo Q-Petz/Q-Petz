@@ -4,15 +4,13 @@
   import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
   import { Window } from "@tauri-apps/api/window";
   import { ModelManager } from "./components/ModelManager";
+  import { useModelEvents } from "./hooks/useModelEvents";
 
   const container = ref<HTMLDivElement | null>(null);
   let scene: THREE.Scene;
   let camera: THREE.PerspectiveCamera;
   let renderer: THREE.WebGLRenderer;
   let animationFrameId: number;
-  let isDragging = false;
-  let isRotating = false;
-  let previousMousePosition = { x: 0, y: 0 };
   let controls: OrbitControls;
   let modelManager: ModelManager;
   let clock: THREE.Clock;
@@ -97,6 +95,9 @@
 
     // 开始动画循环
     animate();
+
+    // 初始化完成后，设置事件监听
+    useModelEvents(container, camera, renderer, modelManager, appWindow);
   }
 
   async function loadModels() {
@@ -129,76 +130,11 @@
     renderer.render(scene, camera);
   }
 
-  function onMouseDown(e: MouseEvent) {
-    if (e.button === 0) {
-      // 左键
-      isDragging = true;
-      // 使用Tauri API开始拖动窗口
-      appWindow.startDragging();
-    } else if (e.button === 2) {
-      // 右键
-      isRotating = true;
-      previousMousePosition = {
-        x: e.clientX,
-        y: e.clientY,
-      };
-    }
-  }
-
-  function onMouseMove(e: MouseEvent) {
-    if (isRotating) {
-      const deltaMove = {
-        x: e.clientX - previousMousePosition.x,
-        y: e.clientY - previousMousePosition.y,
-      };
-
-      // 获取主模型并旋转
-      const model = modelManager.getModel("heli");
-      if (model && model.object) {
-        model.object.rotation.y += deltaMove.x * 0.01;
-        model.object.rotation.x += deltaMove.y * 0.01;
-      }
-
-      previousMousePosition = {
-        x: e.clientX,
-        y: e.clientY,
-      };
-    }
-  }
-
-  function onMouseUp() {
-    isDragging = false;
-    isRotating = false;
-  }
-
-  function onContextMenu(e: MouseEvent) {
-    e.preventDefault(); // 阻止右键菜单弹出
-  }
-
-  function onWindowResize() {
-    if (!container.value) return;
-
-    camera.aspect = container.value.clientWidth / container.value.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.value.clientWidth, container.value.clientHeight);
-  }
-
   onMounted(() => {
     init();
-    window.addEventListener("resize", onWindowResize);
-    window.addEventListener("mousedown", onMouseDown);
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    window.addEventListener("contextmenu", onContextMenu);
   });
 
   onBeforeUnmount(() => {
-    window.removeEventListener("resize", onWindowResize);
-    window.removeEventListener("mousedown", onMouseDown);
-    window.removeEventListener("mousemove", onMouseMove);
-    window.removeEventListener("mouseup", onMouseUp);
-    window.removeEventListener("contextmenu", onContextMenu);
-
     cancelAnimationFrame(animationFrameId);
     if (renderer) {
       renderer.dispose();
