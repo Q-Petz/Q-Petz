@@ -13,8 +13,8 @@
     "windows": [
       {
         "title": "qpetz",
-        "width": 300,
-        "height": 300,
+        "width": 400,
+        "height": 400,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
