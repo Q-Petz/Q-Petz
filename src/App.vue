@@ -1,160 +1,266 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { invoke } from "@tauri-apps/api/core";
+  import { onMounted, onBeforeUnmount, ref } from "vue";
+  import * as THREE from "three";
+  import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+  import { Window } from "@tauri-apps/api/window";
+  import { ModelManager } from "./components/ModelManager";
 
-const greetMsg = ref("");
-const name = ref("");
+  const container = ref<HTMLDivElement | null>(null);
+  let scene: THREE.Scene;
+  let camera: THREE.PerspectiveCamera;
+  let renderer: THREE.WebGLRenderer;
+  let animationFrameId: number;
+  let isDragging = false;
+  let isRotating = false;
+  let previousMousePosition = { x: 0, y: 0 };
+  let controls: OrbitControls;
+  let modelManager: ModelManager;
+  let clock: THREE.Clock;
+  let appWindow: Window;
 
-async function greet() {
-  // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-  greetMsg.value = await invoke("greet", { name: name.value });
-}
+  // 可以在这里配置要加载的模型
+  const modelConfigs = [
+    {
+      id: "heli",
+      config: {
+        path: "/model/heli.glb",
+        options: {
+          scale: 0.5,
+          position: new THREE.Vector3(0, 0, 0),
+        },
+        autoRotate: true,
+        floatAnimation: true,
+      },
+    },
+    // 可以添加更多模型配置
+    // {
+    //   id: "anotherModel",
+    //   config: {
+    //     path: "/model/another.glb",
+    //     options: { scale: 0.3 },
+    //     autoRotate: true
+    //   }
+    // }
+  ];
+
+  async function init() {
+    if (!container.value) return;
+
+    // 初始化Tauri窗口
+    appWindow = Window.getCurrent();
+
+    // 创建场景
+    scene = new THREE.Scene();
+    scene.background = null; // 透明背景
+
+    // 创建相机
+    camera = new THREE.PerspectiveCamera(
+      45,
+      container.value.clientWidth / container.value.clientHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 0, 5);
+    camera.lookAt(0, 0, 0);
+
+    // 创建渲染器
+    renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      alpha: true, // 确保渲染器背景透明
+    });
+    renderer.setSize(container.value.clientWidth, container.value.clientHeight);
+    renderer.setClearColor(0x000000, 0); // 透明背景
+    renderer.setPixelRatio(window.devicePixelRatio);
+    container.value.appendChild(renderer.domElement);
+
+    // 添加灯光
+    const ambientLight = new THREE.AmbientLight(0xffffff, 1.5);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 2);
+    directionalLight.position.set(1, 1, 1);
+    scene.add(directionalLight);
+
+    // 调试用
+    // controls = new OrbitControls(camera, renderer.domElement);
+    // controls.enableDamping = true;
+    // controls.dampingFactor = 0.25;
+
+    // 初始化时钟
+    clock = new THREE.Clock();
+
+    // 初始化模型管理器
+    modelManager = new ModelManager(scene);
+
+    // 加载配置的模型
+    await loadModels();
+
+    // 开始动画循环
+    animate();
+  }
+
+  async function loadModels() {
+    try {
+      for (const modelEntry of modelConfigs) {
+        await modelManager.loadModel(modelEntry.id, modelEntry.config);
+        console.log(`模型 ${modelEntry.id} 加载成功`);
+
+        // 如果需要可以在这里对特定模型进行额外处理
+      }
+    } catch (error) {
+      console.error("加载模型失败:", error);
+    }
+  }
+
+  function animate() {
+    animationFrameId = requestAnimationFrame(animate);
+
+    // 更新所有模型的动画
+    if (modelManager) {
+      modelManager.update();
+    }
+
+    // 更新控制器
+    // if (controls) {
+    //   controls.update();
+    // }
+
+    // 渲染场景
+    renderer.render(scene, camera);
+  }
+
+  function onMouseDown(e: MouseEvent) {
+    if (e.button === 0) {
+      // 左键
+      isDragging = true;
+      // 使用Tauri API开始拖动窗口
+      appWindow.startDragging();
+    } else if (e.button === 2) {
+      // 右键
+      isRotating = true;
+      previousMousePosition = {
+        x: e.clientX,
+        y: e.clientY,
+      };
+    }
+  }
+
+  function onMouseMove(e: MouseEvent) {
+    if (isRotating) {
+      const deltaMove = {
+        x: e.clientX - previousMousePosition.x,
+        y: e.clientY - previousMousePosition.y,
+      };
+
+      // 获取主模型并旋转
+      const model = modelManager.getModel("heli");
+      if (model && model.object) {
+        model.object.rotation.y += deltaMove.x * 0.01;
+        model.object.rotation.x += deltaMove.y * 0.01;
+      }
+
+      previousMousePosition = {
+        x: e.clientX,
+        y: e.clientY,
+      };
+    }
+  }
+
+  function onMouseUp() {
+    isDragging = false;
+    isRotating = false;
+  }
+
+  function onContextMenu(e: MouseEvent) {
+    e.preventDefault(); // 阻止右键菜单弹出
+  }
+
+  function onWindowResize() {
+    if (!container.value) return;
+
+    camera.aspect = container.value.clientWidth / container.value.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.value.clientWidth, container.value.clientHeight);
+  }
+
+  onMounted(() => {
+    init();
+    window.addEventListener("resize", onWindowResize);
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    window.addEventListener("contextmenu", onContextMenu);
+  });
+
+  onBeforeUnmount(() => {
+    window.removeEventListener("resize", onWindowResize);
+    window.removeEventListener("mousedown", onMouseDown);
+    window.removeEventListener("mousemove", onMouseMove);
+    window.removeEventListener("mouseup", onMouseUp);
+    window.removeEventListener("contextmenu", onContextMenu);
+
+    cancelAnimationFrame(animationFrameId);
+    if (renderer) {
+      renderer.dispose();
+    }
+  });
 </script>
 
 <template>
-  <main class="container">
-    <h1>Welcome to Tauri + Vue</h1>
-
-    <div class="row">
-      <a href="https://vitejs.dev" target="_blank">
-        <img src="/vite.svg" class="logo vite" alt="Vite logo" />
-      </a>
-      <a href="https://tauri.app" target="_blank">
-        <img src="/tauri.svg" class="logo tauri" alt="Tauri logo" />
-      </a>
-      <a href="https://vuejs.org/" target="_blank">
-        <img src="./assets/vue.svg" class="logo vue" alt="Vue logo" />
-      </a>
-    </div>
-    <p>Click on the Tauri, Vite, and Vue logos to learn more.</p>
-
-    <form class="row" @submit.prevent="greet">
-      <input id="greet-input" v-model="name" placeholder="Enter a name..." />
-      <button type="submit">Greet</button>
-    </form>
-    <p>{{ greetMsg }}</p>
-  </main>
+  <div ref="container" class="model-container"></div>
 </template>
 
-<style scoped>
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #249b73);
-}
-
-</style>
 <style>
-:root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
-}
-
-.container {
-  margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
-}
-
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
-}
-
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
-  cursor: pointer;
-}
-
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
-
-input,
-button {
-  outline: none;
-}
-
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 
-  a:hover {
-    color: #24c8db;
+  html,
+  body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: transparent;
   }
 
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
+  body {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
   }
-  button:active {
-    background-color: #0f0f0f69;
-  }
-}
 
+  #app {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: transparent;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+
+  .model-container {
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+    position: fixed;
+    top: 0;
+    left: 0;
+  }
+
+  /* 确保所有元素都是透明的 */
+  html,
+  body,
+  #app,
+  .model-container {
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
 </style>
