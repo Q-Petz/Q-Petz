@@ -3,7 +3,7 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, onBeforeUnmount, ref } from "vue";
+  import { onMounted, onBeforeUnmount, ref, defineComponent } from "vue";
   import * as THREE from "three";
   import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
   import { Window } from "@tauri-apps/api/window";
@@ -156,3 +156,8 @@
     left: 0;
   }
 </style>
+
+<script lang="ts">
+  // 为了支持命名导出
+  export default { name: "ModelViewer" };
+</script>

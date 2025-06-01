@@ -3,7 +3,9 @@
 </script>
 
 <template>
-  <ModelViewer />
+  <div class="w-full h-full flex justify-center items-center">
+    <ModelViewer />
+  </div>
 </template>
 
 <style>
