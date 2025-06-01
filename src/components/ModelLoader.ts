@@ -4,6 +4,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 export interface ModelLoadOptions {
   scale?: THREE.Vector3 | number;
   position?: THREE.Vector3;
+  rotation?: THREE.Euler;
   onProgress?: (event: ProgressEvent) => void;
 }
 
@@ -51,6 +52,11 @@ export class ModelLoader {
           // 应用位置
           if (options.position) {
             model.position.copy(options.position);
+          }
+          
+          // 应用旋转
+          if (options.rotation) {
+            model.rotation.copy(options.rotation);
           }
           
           // 创建动画混合器（如果模型有动画）

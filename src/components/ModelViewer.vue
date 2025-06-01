@@ -25,10 +25,11 @@
     {
       id: "heli",
       config: {
-        path: "/model/beiluo.glb",
+        path: "/model/heli.glb",
         options: {
           scale: 2,
-          position: new THREE.Vector3(0, -1.5, 0),
+          position: new THREE.Vector3(0, 0, 0), // 将模型放在原点
+          rotation: new THREE.Euler(0, -Math.PI / 2, 0), // 旋转180度，使模型朝向相机
         },
         // autoRotate: true,
         floatAnimation: true,
@@ -62,7 +63,7 @@
       0.2,
       1000
     );
-    camera.position.set(0, 0, 5);
+    camera.position.set(0, 1, 5); // 调整高度，稍微往上看
     camera.lookAt(0, 0, 0);
 
     // 创建渲染器
@@ -107,10 +108,17 @@
   async function loadModels() {
     try {
       for (const modelEntry of modelConfigs) {
-        await modelManager.loadModel(modelEntry.id, modelEntry.config);
+        const loadedModel = await modelManager.loadModel(
+          modelEntry.id,
+          modelEntry.config
+        );
         console.log(`模型 ${modelEntry.id} 加载成功`);
 
         // 如果需要可以在这里对特定模型进行额外处理
+        // 设置模型的朝向，使其面向相机
+        if (loadedModel.object && modelEntry.config.options?.rotation) {
+          loadedModel.object.rotation.copy(modelEntry.config.options.rotation);
+        }
       }
     } catch (error) {
       console.error("加载模型失败:", error);
