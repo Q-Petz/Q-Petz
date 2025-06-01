@@ -5,55 +5,75 @@ fn greet(name: &str) -> String {
 }
 
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::{TrayIconBuilder, TrayIconEvent};
-use tauri::{Manager, WebviewWindowBuilder};
+use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState};
+use tauri::{Manager, WebviewWindowBuilder, WebviewUrl};
 
-// 定义菜单项事件处理
-fn handle_menu_event(app: &tauri::AppHandle, event_id: &str) {
-    match event_id {
-        "quit" => {
-            std::process::exit(0);
+#[tauri::command]
+fn open_demo_page(app_handle: tauri::AppHandle) -> Result<(), String> {
+    // 检查窗口是否已存在
+    if let Some(window) = app_handle.get_webview_window("demo_window") {
+        if !window.is_visible().unwrap_or(false) {
+            let _ = window.show();
         }
-        "demo_page" => {
-            // 创建一个新窗口显示demo页面
-            let window = WebviewWindowBuilder::new(app, "demo_window", tauri::WebviewUrl::App("demo.html".into()))
-                .title("Demo Window")
-                .inner_size(600.0, 400.0)
-                .build()
-                .unwrap();
-        }
-        _ => {}
+        let _ = window.set_focus();
+        return Ok(());
     }
+
+    // 创建Vue路由页面窗口
+    let _ = WebviewWindowBuilder::new(
+        &app_handle, 
+        "demo_window", 
+        WebviewUrl::App("/demo".into())
+    )
+    .title("Demo页面")
+    .inner_size(600.0, 400.0)
+    .resizable(true)
+    .build()
+    .map_err(|e| e.to_string())?;
+    
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+pub fn create_app() -> tauri::App {
     tauri::Builder::default()
-        .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![greet, open_demo_page])
         .setup(|app| {
-            // 创建托盘菜单
-            let quit_item = MenuItem::with_id(app, "quit", "退出", true, None::<&str>)?;
-            let demo_item = MenuItem::with_id(app, "demo_page", "打开Demo页面", true, None::<&str>)?;
-            let tray_menu = Menu::with_items(app, &[&demo_item, &quit_item])?;
+            // 创建菜单
+            let quit = MenuItem::with_id(app, "quit", "退出程序", true, None::<&str>)?;
+            let demo = MenuItem::with_id(app, "demo", "打开Demo页面", true, None::<&str>)?;
+            // 创建一个分隔符菜单项
+            let menu = Menu::with_items(app, &[&demo, &quit])?;
 
             // 创建托盘图标
-            let tray_icon = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&tray_menu)
-                .on_menu_event(|app, event| {
-                    handle_menu_event(app, event.id.as_ref());
-                })
-                .on_tray_icon_event(|app, event| {
-                    // 当左键点击托盘图标时，可以添加其他处理
-                    if let TrayIconEvent::Click { .. } = event {
-                        println!("托盘图标被点击");
+            let tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone()) // 使用app icon作为托盘图标
+                .menu(&menu)
+                .tooltip("QPetz")
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "quit" => {
+                        app.exit(0);
                     }
+                    "demo" => {
+                        let _ = open_demo_page(app.clone());
+                    }
+                    _ => {}
+                })
+                .on_tray_icon_event(|app, event| match event {
+                    // 托盘图标左键点击时打开Demo页面
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    } => {
+                        let _ = open_demo_page(app.app_handle().clone());
+                    }
+                    _ => {}
                 })
                 .build(app)?;
 
             Ok(())
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
 }
