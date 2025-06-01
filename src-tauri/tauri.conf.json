@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "qpetz",
         "width": 400,
         "height": 400,

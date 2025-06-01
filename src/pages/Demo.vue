@@ -1,6 +1,6 @@
 <template>
   <div class="demo-container">
-    <h1>Demo 页面</h1>
+    <h1>Demo 页面222</h1>
     <p>这是通过托盘菜单打开的演示页面</p>
     <div class="demo-content">
       <button @click="closeWindow" class="close-btn">关闭窗口</button>
