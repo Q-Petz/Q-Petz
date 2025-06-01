@@ -60,9 +60,16 @@ export class ModelManager {
         model.object.rotation.y += 0.003;
       }
       
-      // 应用浮动动画
+      // 应用浮动动画 - 减小幅度并保持Y轴基础位置
       if (config?.floatAnimation && model.object) {
-        model.object.position.y = Math.sin(this.clock.getElapsedTime() * 0.5) * 0.1;
+        // 保存原始Y位置
+        if (model.object.userData.originalY === undefined) {
+          model.object.userData.originalY = model.object.position.y;
+        }
+        
+        // 小幅度浮动，不会改变整体位置
+        const originalY = model.object.userData.originalY;
+        model.object.position.y = originalY + Math.sin(this.clock.getElapsedTime() * 0.5) * 0.05;
       }
     }
   }

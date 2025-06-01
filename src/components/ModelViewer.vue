@@ -27,9 +27,9 @@
       config: {
         path: "/model/heli.glb",
         options: {
-          scale: 2,
-          position: new THREE.Vector3(0, 0, 0), // 将模型放在原点
-          rotation: new THREE.Euler(0, -Math.PI / 2, 0), // 旋转180度，使模型朝向相机
+          scale: 3,
+          position: new THREE.Vector3(0, -1.5, 0), // 将模型向下移动1.5个单位
+          rotation: new THREE.Euler(0, -Math.PI / 2, 0), // 旋转不变
         },
         // autoRotate: true,
         floatAnimation: true,
@@ -113,12 +113,6 @@
           modelEntry.config
         );
         console.log(`模型 ${modelEntry.id} 加载成功`);
-
-        // 如果需要可以在这里对特定模型进行额外处理
-        // 设置模型的朝向，使其面向相机
-        if (loadedModel.object && modelEntry.config.options?.rotation) {
-          loadedModel.object.rotation.copy(modelEntry.config.options.rotation);
-        }
       }
     } catch (error) {
       console.error("加载模型失败:", error);
