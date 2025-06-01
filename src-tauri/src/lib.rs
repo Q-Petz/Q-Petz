@@ -11,27 +11,16 @@ use tauri::{Manager, WebviewWindowBuilder, WebviewUrl};
 #[tauri::command]
 fn open_demo_page(app_handle: tauri::AppHandle) -> Result<(), String> {
     // 检查窗口是否已存在
-    if let Some(window) = app_handle.get_webview_window("demo_window") {
+    if let Some(window) = app_handle.get_webview_window("ModelConfiguration_window") {
         if !window.is_visible().unwrap_or(false) {
             let _ = window.show();
         }
         let _ = window.set_focus();
         return Ok(());
     }
-
-    // 创建Vue路由页面窗口
-    let _ = WebviewWindowBuilder::new(
-        &app_handle, 
-        "demo_window", 
-        WebviewUrl::App("/demo".into())
-    )
-    .title("Demo页面")
-    .inner_size(600.0, 400.0)
-    .resizable(true)
-    .build()
-    .map_err(|e| e.to_string())?;
     
-    Ok(())
+    // 如果窗口未找到（这种情况在配置正确的前提下不应该发生）
+    Err("无法找到Demo窗口".into())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -41,9 +30,9 @@ pub fn create_app() -> tauri::App {
         .setup(|app| {
             // 创建菜单
             let quit = MenuItem::with_id(app, "quit", "退出程序", true, None::<&str>)?;
-            let demo = MenuItem::with_id(app, "demo", "打开Demo页面", true, None::<&str>)?;
+            let ModelConfiguration = MenuItem::with_id(app, "ModelConfiguration", "模型参数配置", true, None::<&str>)?;
             // 创建一个分隔符菜单项
-            let menu = Menu::with_items(app, &[&demo, &quit])?;
+            let menu = Menu::with_items(app, &[&ModelConfiguration, &quit])?;
 
             // 创建托盘图标
             let tray = TrayIconBuilder::new()
@@ -54,7 +43,7 @@ pub fn create_app() -> tauri::App {
                     "quit" => {
                         app.exit(0);
                     }
-                    "demo" => {
+                    "ModelConfiguration" => {
                         let _ = open_demo_page(app.clone());
                     }
                     _ => {}

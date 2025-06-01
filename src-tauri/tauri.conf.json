@@ -22,6 +22,15 @@
         "skipTaskbar": true,
         "resizable": false,
         "shadow": false
+      },
+      {
+        "label": "ModelConfiguration_window",
+        "title": "模型参数配置",
+        "width": 600,
+        "height": 400,
+        "url": "/model-config",
+        "resizable": true,
+        "visible": false
       }
     ],
     "security": {
