@@ -1,8 +1,14 @@
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
 import Demo from '../pages/Demo.vue';
 import ModelConfiguration from '../pages/ModelConfiguration/index.vue';
+import ModelViewer from '../pages/ModelViewer/index.vue';
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/ModelViewer',
+    name: 'ModelViewer',
+    component: ModelViewer
+  },
   {
     path: '/demo',
     name: 'Demo',

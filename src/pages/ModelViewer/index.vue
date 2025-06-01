@@ -9,8 +9,8 @@
   import { Window } from "@tauri-apps/api/window";
   import { listen, UnlistenFn } from "@tauri-apps/api/event";
   import { ModelManager } from "./ModelManager";
-  import { useModelEvents } from "../hooks/useModelEvents";
-  import { useModelConfigStore, TauriEvents } from "../store/modelConfigStore";
+  import { useModelEvents } from "@/hooks/useModelEvents";
+  import { useModelConfigStore, TauriEvents } from "@/store/modelConfigStore";
 
   const container = ref<HTMLDivElement | null>(null);
   let scene: THREE.Scene;

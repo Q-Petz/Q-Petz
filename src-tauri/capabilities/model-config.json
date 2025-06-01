@@ -1,0 +1,11 @@
+{
+    "$schema": "../gen/schemas/desktop-schema.json",
+    "identifier": "model-config-capability",
+    "description": "ModelConfiguration窗口的功能权限",
+    "windows": [
+        "ModelConfiguration_window"
+    ],
+    "permissions": [
+        "core:event:allow-emit"
+    ]
+}

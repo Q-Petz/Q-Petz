@@ -14,6 +14,7 @@
       {
         "label": "main",
         "title": "qpetz",
+        "url": "/ModelViewer",
         "width": 400,
         "height": 400,
         "decorations": false,
@@ -26,15 +27,19 @@
       {
         "label": "ModelConfiguration_window",
         "title": "模型参数配置",
-        "width": 600,
-        "height": 400,
+        "width": 1200,
+        "height": 800,
         "url": "/model-config",
         "resizable": true,
         "visible": false
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": [
+        "default",
+        "model-config-capability"
+      ]
     }
   },
   "bundle": {
