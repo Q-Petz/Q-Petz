@@ -10,33 +10,10 @@
     "frontendDist": "../dist"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "qpetz",
-        "url": "/ModelViewer",
-        "width": 400,
-        "height": 400,
-        "decorations": false,
-        "transparent": true,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "resizable": false,
-        "shadow": false
-      },
-      {
-        "label": "ModelConfiguration_window",
-        "title": "模型参数配置",
-        "width": 1200,
-        "height": 800,
-        "url": "/model-config",
-        "resizable": true,
-        "visible": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null,
-      "capabilities": ["default", "model-config-capability"]
+      "capabilities": ["default", "model-config"]
     },
     "macOSPrivateApi": true
   },

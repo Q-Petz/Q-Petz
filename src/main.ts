@@ -1,12 +1,16 @@
 import { createApp } from "vue";
-import { createPinia } from 'pinia';
 import App from "./App.vue";
-import router from "./router";
 import "./index.css";
+import { setupSystem } from "./system";
+import { setupPinia } from "./store";
+import { setupRouter } from "./router";
 
-const pinia = createPinia();
+function boostrap() {
+  setupSystem();
+  const app = createApp(App);
+  setupPinia(app);
+  setupRouter(app);
+  app.mount("#app");
+}
 
-createApp(App)
-  .use(router)
-  .use(pinia)
-  .mount("#app");
+boostrap();
