@@ -5,8 +5,9 @@ fn greet(name: &str) -> String {
 }
 
 use tauri::menu::{Menu, MenuItem};
-use tauri::tray::{TrayIconBuilder, TrayIconEvent, MouseButton, MouseButtonState};
-use tauri::{Manager, WebviewWindowBuilder, WebviewUrl};
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
+use tauri::window::Color;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[tauri::command]
 fn open_demo_page(app_handle: tauri::AppHandle) -> Result<(), String> {
@@ -18,7 +19,7 @@ fn open_demo_page(app_handle: tauri::AppHandle) -> Result<(), String> {
         let _ = window.set_focus();
         return Ok(());
     }
-    
+
     // 如果窗口未找到（这种情况在配置正确的前提下不应该发生）
     Err("无法找到Demo窗口".into())
 }
@@ -28,9 +29,28 @@ pub fn create_app() -> tauri::App {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![greet, open_demo_page])
         .setup(|app| {
+            // 创建窗口
+            let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::default())
+                .title("Pet Desktop")
+                .inner_size(800.0, 600.0)
+                .decorations(false)
+                .transparent(true)
+                .background_color(Color(0, 0, 0, 0))
+                .resizable(true)
+                .always_on_top(false)
+                .skip_taskbar(false)
+                .shadow(false)
+                .build();
+
             // 创建菜单
             let quit = MenuItem::with_id(app, "quit", "退出程序", true, None::<&str>)?;
-            let ModelConfiguration = MenuItem::with_id(app, "ModelConfiguration", "模型参数配置", true, None::<&str>)?;
+            let ModelConfiguration = MenuItem::with_id(
+                app,
+                "ModelConfiguration",
+                "模型参数配置",
+                true,
+                None::<&str>,
+            )?;
             // 创建一个分隔符菜单项
             let menu = Menu::with_items(app, &[&ModelConfiguration, &quit])?;
 
