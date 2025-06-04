@@ -1,0 +1,11 @@
+###
+ # @Author: AnthonyLuo
+ # @Date: 2025-06-04 16:18:18
+ # @LastEditors: AnthonyLuo
+ # @LastEditTime: 2025-06-04 16:20:25
+ # @Email: jum1274001055@gmail.com
+### 
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+pnpm exec lint-staged
