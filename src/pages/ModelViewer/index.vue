@@ -3,14 +3,14 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onBeforeUnmount, ref, watch } from "vue";
-import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Window } from "@tauri-apps/api/window";
-import { listen, UnlistenFn } from "@tauri-apps/api/event";
-import { ModelManager } from "./ModelManager";
 import { useModelEvents } from "@/hooks/useModelEvents";
-import { useModelConfigStore, TauriEvents } from "@/store/modelConfigStore";
+import { TauriEvents, useModelConfigStore } from "@/store/modelConfigStore";
+import { type UnlistenFn, listen } from "@tauri-apps/api/event";
+import { Window } from "@tauri-apps/api/window";
+import * as THREE from "three";
+import type { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { ModelManager } from "./ModelManager";
 
 const container = ref<HTMLDivElement | null>(null);
 let scene: THREE.Scene;
@@ -82,10 +82,7 @@ async function init() {
     alpha: modelConfigStore.backgroundColor === "transparent",
   });
   renderer.setSize(container.value.clientWidth, container.value.clientHeight);
-  renderer.setClearColor(
-    0x000000,
-    modelConfigStore.backgroundColor === "transparent" ? 0 : 1
-  );
+  renderer.setClearColor(0x000000, modelConfigStore.backgroundColor === "transparent" ? 0 : 1);
   renderer.setPixelRatio(window.devicePixelRatio);
   container.value.appendChild(renderer.domElement);
 
@@ -101,11 +98,7 @@ async function init() {
     Number(modelConfigStore.lightIntensity)
   );
   const lightPos = modelConfigStore.lightPosition;
-  directionalLight.position.set(
-    Number(lightPos.x),
-    Number(lightPos.y),
-    Number(lightPos.z)
-  );
+  directionalLight.position.set(Number(lightPos.x), Number(lightPos.y), Number(lightPos.z));
   scene.add(directionalLight);
 
   // 调试用
@@ -144,10 +137,7 @@ async function loadModels() {
     updateModelConfigs();
 
     for (const modelEntry of modelConfigs) {
-      const loadedModel = await modelManager.loadModel(
-        modelEntry.id,
-        modelEntry.config
-      );
+      const loadedModel = await modelManager.loadModel(modelEntry.id, modelEntry.config);
       console.log(`模型 ${modelEntry.id} 加载成功`);
     }
 
@@ -205,11 +195,7 @@ async function setupEventListeners() {
 
       // 更新光源位置
       const lightPos = modelConfigStore.lightPosition;
-      directionalLight.position.set(
-        Number(lightPos.x),
-        Number(lightPos.y),
-        Number(lightPos.z)
-      );
+      directionalLight.position.set(Number(lightPos.x), Number(lightPos.y), Number(lightPos.z));
     }
   });
   unlistenFunctions.push(unlistenLight);
@@ -225,23 +211,17 @@ async function setupEventListeners() {
   unlistenFunctions.push(unlistenCamera);
 
   // 背景配置变更
-  const unlistenBackground = await listen(
-    TauriEvents.BACKGROUND_CHANGED,
-    (event) => {
-      if (scene && renderer) {
-        if (modelConfigStore.backgroundColor === "transparent") {
-          scene.background = null;
-          renderer.setClearColor(0x000000, 0);
-        } else {
-          scene.background = new THREE.Color(modelConfigStore.backgroundColor);
-          renderer.setClearColor(
-            new THREE.Color(modelConfigStore.backgroundColor),
-            1
-          );
-        }
+  const unlistenBackground = await listen(TauriEvents.BACKGROUND_CHANGED, (event) => {
+    if (scene && renderer) {
+      if (modelConfigStore.backgroundColor === "transparent") {
+        scene.background = null;
+        renderer.setClearColor(0x000000, 0);
+      } else {
+        scene.background = new THREE.Color(modelConfigStore.backgroundColor);
+        renderer.setClearColor(new THREE.Color(modelConfigStore.backgroundColor), 1);
       }
     }
-  );
+  });
   unlistenFunctions.push(unlistenBackground);
 
   // 模型配置变更
@@ -251,12 +231,9 @@ async function setupEventListeners() {
   unlistenFunctions.push(unlistenModel);
 
   // 旋转速度变更
-  const unlistenRotation = await listen(
-    TauriEvents.ROTATION_CHANGED,
-    (event) => {
-      modelManager.setRotationSpeed(Number(modelConfigStore.rotationSpeed));
-    }
-  );
+  const unlistenRotation = await listen(TauriEvents.ROTATION_CHANGED, (event) => {
+    modelManager.setRotationSpeed(Number(modelConfigStore.rotationSpeed));
+  });
   unlistenFunctions.push(unlistenRotation);
 }
 

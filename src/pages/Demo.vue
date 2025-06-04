@@ -15,14 +15,14 @@
 </template>
 
 <script setup>
-  import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 
-  const closeWindow = () => {
-    const window = getCurrentWebviewWindow();
-    if (window) {
-      window.close();
-    }
-  };
+const closeWindow = () => {
+  const window = getCurrentWebviewWindow();
+  if (window) {
+    window.close();
+  }
+};
 </script>
 
 <style scoped>

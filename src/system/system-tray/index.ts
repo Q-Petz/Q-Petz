@@ -1,6 +1,6 @@
-import { TrayIcon, type TrayIconOptions } from "@tauri-apps/api/tray";
 import { defaultWindowIcon } from "@tauri-apps/api/app";
 import { Menu } from "@tauri-apps/api/menu";
+import { TrayIcon, type TrayIconOptions } from "@tauri-apps/api/tray";
 import { menu } from "./menu";
 
 export async function setupSystemTray() {

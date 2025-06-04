@@ -7,7 +7,14 @@
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "format": "biome format --write src/",
+    "lint": "biome lint src/",
+    "lint:fix": "biome lint --write src/",
+    "check": "biome check src/",
+    "check:fix": "biome check --write src/",
+    "check:ci": "biome ci src/",
+    "pre-commit": "biome check --write src/ && vue-tsc --noEmit"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
@@ -20,6 +27,7 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@tailwindcss/postcss": "^4.1.8",
     "@tauri-apps/cli": "^2",
     "@types/node": "^22.15.29",

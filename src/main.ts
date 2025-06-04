@@ -1,9 +1,9 @@
 import { createApp } from "vue";
 import App from "./App.vue";
 import "./index.css";
-import { setupSystem } from "./system";
-import { setupPinia } from "./store";
 import { setupRouter } from "./router";
+import { setupPinia } from "./store";
+import { setupSystem } from "./system";
 
 function boostrap() {
   setupSystem();
