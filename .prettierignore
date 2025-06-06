@@ -1,0 +1,19 @@
+# Build outputs
+dist/
+build/
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+
+# Tauri
+src-tauri/
+
+# JS/TS files (handled by Biome)
+src/**/*.js
+src/**/*.ts
+src/**/*.vue
+src/**/*.json
+
+# Generated files
+*.d.ts 

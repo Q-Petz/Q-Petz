@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  // 空的setup脚本，不需要任何导入
+// 空的setup脚本，不需要任何导入
 </script>
 
 <template>

@@ -215,104 +215,96 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, watch } from "vue";
-  import { useModelConfigStore } from "../../store/modelConfigStore";
+import { onMounted, ref, watch } from "vue";
+import { useModelConfigStore } from "../../store/modelConfigStore";
 
-  // 获取状态存储
-  const store = useModelConfigStore();
+// 获取状态存储
+const store = useModelConfigStore();
 
-  // 背景颜色需要特殊处理，因为'transparent'不是有效的颜色值
-  const backgroundColor = ref(
-    store.backgroundColor === "transparent" ? "#ffffff" : store.backgroundColor
-  );
+// 背景颜色需要特殊处理，因为'transparent'不是有效的颜色值
+const backgroundColor = ref(
+  store.backgroundColor === "transparent" ? "#ffffff" : store.backgroundColor
+);
 
-  // 从本地存储加载配置
-  onMounted(() => {
-    store.loadFromLocalStorage();
-    if (store.backgroundColor !== "transparent") {
-      backgroundColor.value = store.backgroundColor;
-    }
-  });
+// 从本地存储加载配置
+onMounted(() => {
+  store.loadFromLocalStorage();
+  if (store.backgroundColor !== "transparent") {
+    backgroundColor.value = store.backgroundColor;
+  }
+});
 
-  // 保存配置到本地存储
-  const saveConfig = () => {
-    store.saveToLocalStorage();
-    showToast("配置已保存");
-  };
+// 保存配置到本地存储
+const saveConfig = () => {
+  store.saveToLocalStorage();
+  showToast("配置已保存");
+};
 
-  // 重置配置
-  const resetConfig = () => {
-    store.resetToDefaults();
-    backgroundColor.value =
-      store.backgroundColor === "transparent"
-        ? "#ffffff"
-        : store.backgroundColor;
-    showToast("已重置为默认配置");
-  };
+// 重置配置
+const resetConfig = () => {
+  store.resetToDefaults();
+  backgroundColor.value =
+    store.backgroundColor === "transparent" ? "#ffffff" : store.backgroundColor;
+  showToast("已重置为默认配置");
+};
 
-  // 更新背景颜色
-  const updateBackgroundColor = () => {
-    store.updateBackgroundConfig(backgroundColor.value);
-  };
+// 更新背景颜色
+const updateBackgroundColor = () => {
+  store.updateBackgroundConfig(backgroundColor.value);
+};
 
-  // 设置透明背景
-  const setBackgroundTransparent = () => {
-    store.updateBackgroundConfig("transparent");
-  };
+// 设置透明背景
+const setBackgroundTransparent = () => {
+  store.updateBackgroundConfig("transparent");
+};
 
-  // 显示提示消息
-  const showToast = (message: string) => {
-    const toast = document.createElement("div");
-    toast.className = "toast";
-    toast.textContent = message;
-    document.body.appendChild(toast);
+// 显示提示消息
+const showToast = (message: string) => {
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.textContent = message;
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.classList.add("show");
 
     setTimeout(() => {
-      toast.classList.add("show");
-
+      toast.classList.remove("show");
       setTimeout(() => {
-        toast.classList.remove("show");
-        setTimeout(() => {
-          document.body.removeChild(toast);
-        }, 300);
-      }, 2000);
-    }, 100);
-  };
+        document.body.removeChild(toast);
+      }, 300);
+    }, 2000);
+  }, 100);
+};
 
-  // 监听配置变化确保数值类型一致
-  watch(
-    () => [
-      store.lightIntensity,
-      store.modelScale,
-      store.cameraDistance,
-      store.cameraFov,
-      store.rotationSpeed,
-    ],
-    ([
-      lightIntensity,
-      modelScale,
-      cameraDistance,
-      cameraFov,
-      rotationSpeed,
-    ]) => {
-      store.lightIntensity = Number(lightIntensity);
-      store.modelScale = Number(modelScale);
-      store.cameraDistance = Number(cameraDistance);
-      store.cameraFov = Number(cameraFov);
-      store.rotationSpeed = Number(rotationSpeed);
-    }
-  );
+// 监听配置变化确保数值类型一致
+watch(
+  () => [
+    store.lightIntensity,
+    store.modelScale,
+    store.cameraDistance,
+    store.cameraFov,
+    store.rotationSpeed,
+  ],
+  ([lightIntensity, modelScale, cameraDistance, cameraFov, rotationSpeed]) => {
+    store.lightIntensity = Number(lightIntensity);
+    store.modelScale = Number(modelScale);
+    store.cameraDistance = Number(cameraDistance);
+    store.cameraFov = Number(cameraFov);
+    store.rotationSpeed = Number(rotationSpeed);
+  }
+);
 
-  // 监听光源位置变化确保数值类型一致
-  watch(
-    () => store.lightPosition,
-    (position) => {
-      store.lightPosition.x = Number(position.x);
-      store.lightPosition.y = Number(position.y);
-      store.lightPosition.z = Number(position.z);
-    },
-    { deep: true }
-  );
+// 监听光源位置变化确保数值类型一致
+watch(
+  () => store.lightPosition,
+  (position) => {
+    store.lightPosition.x = Number(position.x);
+    store.lightPosition.y = Number(position.y);
+    store.lightPosition.z = Number(position.z);
+  },
+  { deep: true }
+);
 </script>
 
 <style>

@@ -24,41 +24,38 @@ export interface LoadedModel {
 
 export class ModelLoader {
   private loader: GLTFLoader;
-  
+
   constructor() {
     this.loader = new GLTFLoader();
   }
-  
-  async load(
-    modelPath: string, 
-    options: ModelLoadOptions = {}
-  ): Promise<LoadedModel> {
+
+  async load(modelPath: string, options: ModelLoadOptions = {}): Promise<LoadedModel> {
     return new Promise((resolve, reject) => {
       this.loader.load(
         modelPath,
         (gltf) => {
           console.log(`模型 ${modelPath} 加载成功`, gltf);
           const model = gltf.scene;
-          
+
           // 应用缩放
           if (options.scale !== undefined) {
-            if (typeof options.scale === 'number') {
+            if (typeof options.scale === "number") {
               model.scale.set(options.scale, options.scale, options.scale);
             } else {
               model.scale.copy(options.scale);
             }
           }
-          
+
           // 应用位置
           if (options.position) {
             model.position.copy(options.position);
           }
-          
+
           // 应用旋转
           if (options.rotation) {
             model.rotation.copy(options.rotation);
           }
-          
+
           // 创建动画混合器（如果模型有动画）
           let mixer: THREE.AnimationMixer | undefined;
           if (gltf.animations && gltf.animations.length > 0) {
@@ -67,11 +64,11 @@ export class ModelLoader {
             const action = mixer.clipAction(gltf.animations[0]);
             action.play();
           }
-          
+
           resolve({
             object: model,
             mixer,
-            animations: gltf.animations
+            animations: gltf.animations,
           });
         },
         options.onProgress,
@@ -82,7 +79,7 @@ export class ModelLoader {
       );
     });
   }
-  
+
   /**
    * 计算模型的包围盒和中心点
    */
@@ -94,35 +91,31 @@ export class ModelLoader {
     const box = new THREE.Box3().setFromObject(model);
     const size = box.getSize(new THREE.Vector3());
     const center = box.getCenter(new THREE.Vector3());
-    
+
     return { box, size, center };
   }
-  
+
   /**
    * 计算适合展示模型的相机位置
    */
   static computeCameraPosition(
     model: THREE.Object3D,
-    cameraFactor: number = 1.5
+    cameraFactor = 1.5
   ): {
     position: THREE.Vector3;
     lookAt: THREE.Vector3;
   } {
     const { size, center } = this.computeBoundingBox(model);
-    
+
     // 找出模型的最大尺寸
     const maxDim = Math.max(size.x, size.y, size.z);
-    
+
     // 计算相机位置
-    const position = new THREE.Vector3(
-      center.x,
-      center.y,
-      center.z + maxDim * cameraFactor
-    );
-    
+    const position = new THREE.Vector3(center.x, center.y, center.z + maxDim * cameraFactor);
+
     return {
       position,
-      lookAt: center
+      lookAt: center,
     };
   }
-} 
+}

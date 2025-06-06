@@ -1,7 +1,7 @@
-import { onBeforeUnmount, Ref } from "vue";
-import * as THREE from "three";
-import { Window } from "@tauri-apps/api/window";
-import { ModelManager } from "../components/ModelManager";
+import type { Window } from "@tauri-apps/api/window";
+import type * as THREE from "three";
+import { type Ref, onBeforeUnmount } from "vue";
+import type { ModelManager } from "../components/ModelManager";
 
 export function useModelEvents(
   container: Ref<HTMLDivElement | null>,
@@ -89,6 +89,6 @@ export function useModelEvents(
     onMouseDown,
     onMouseMove,
     onMouseUp,
-    onContextMenu
+    onContextMenu,
   };
-} 
+}
