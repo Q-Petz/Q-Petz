@@ -4,8 +4,8 @@
 
 <script setup lang="ts">
 import { useModelEvents } from "@/hooks/useModelEvents";
-import { TauriEvents, useModelConfigStore } from "@/store/modelConfigStore";
-import { type UnlistenFn, listen } from "@tauri-apps/api/event";
+import { ModelConfigEvents, useModelConfigStore } from "@/store/modelConfigStore";
+import { windowComm } from "@/utils/window-communication";
 import { Window } from "@tauri-apps/api/window";
 import * as THREE from "three";
 import type { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -23,7 +23,7 @@ let clock: THREE.Clock;
 let appWindow: Window;
 
 // 存储事件取消订阅函数
-const unlistenFunctions: UnlistenFn[] = [];
+const unlistenFunctions: (() => void)[] = [];
 
 // 获取模型配置
 const modelConfigStore = useModelConfigStore();
@@ -55,6 +55,9 @@ async function init() {
 
   // 从本地存储加载配置
   modelConfigStore.loadFromLocalStorage();
+  
+  // 初始化配置同步
+  modelConfigStore.initConfigSync();
 
   // 初始化Tauri窗口
   appWindow = Window.getCurrent();
@@ -181,58 +184,60 @@ function updateModelConfigs() {
   });
 }
 
-// 设置Tauri IPC事件监听
+// 设置窗口通信事件监听
 async function setupEventListeners() {
+  // 初始化配置同步
+  await modelConfigStore.initConfigSync();
+
   // 光源配置变更
-  const unlistenLight = await listen(TauriEvents.LIGHT_CHANGED, (event) => {
+  const unlistenLight = await windowComm.onConfigUpdate(ModelConfigEvents.LIGHT_CHANGED, (config) => {
     if (ambientLight && directionalLight) {
       // 更新光源强度和颜色
-      ambientLight.intensity = Number(modelConfigStore.lightIntensity);
-      ambientLight.color.set(modelConfigStore.lightColor);
+      ambientLight.intensity = Number(config.lightIntensity);
+      ambientLight.color.set(config.lightColor);
 
-      directionalLight.intensity = Number(modelConfigStore.lightIntensity);
-      directionalLight.color.set(modelConfigStore.lightColor);
+      directionalLight.intensity = Number(config.lightIntensity);
+      directionalLight.color.set(config.lightColor);
 
       // 更新光源位置
-      const lightPos = modelConfigStore.lightPosition;
-      directionalLight.position.set(Number(lightPos.x), Number(lightPos.y), Number(lightPos.z));
+      directionalLight.position.set(Number(config.lightPosition.x), Number(config.lightPosition.y), Number(config.lightPosition.z));
     }
   });
   unlistenFunctions.push(unlistenLight);
 
   // 相机配置变更
-  const unlistenCamera = await listen(TauriEvents.CAMERA_CHANGED, (event) => {
+  const unlistenCamera = await windowComm.onConfigUpdate(ModelConfigEvents.CAMERA_CHANGED, (config) => {
     if (camera) {
-      camera.fov = Number(modelConfigStore.cameraFov);
-      camera.position.z = Number(modelConfigStore.cameraDistance);
+      camera.fov = Number(config.cameraFov);
+      camera.position.z = Number(config.cameraDistance);
       camera.updateProjectionMatrix();
     }
   });
   unlistenFunctions.push(unlistenCamera);
 
   // 背景配置变更
-  const unlistenBackground = await listen(TauriEvents.BACKGROUND_CHANGED, (event) => {
+  const unlistenBackground = await windowComm.onConfigUpdate(ModelConfigEvents.BACKGROUND_CHANGED, (config) => {
     if (scene && renderer) {
-      if (modelConfigStore.backgroundColor === "transparent") {
+      if (config.backgroundColor === "transparent") {
         scene.background = null;
         renderer.setClearColor(0x000000, 0);
       } else {
-        scene.background = new THREE.Color(modelConfigStore.backgroundColor);
-        renderer.setClearColor(new THREE.Color(modelConfigStore.backgroundColor), 1);
+        scene.background = new THREE.Color(config.backgroundColor);
+        renderer.setClearColor(new THREE.Color(config.backgroundColor), 1);
       }
     }
   });
   unlistenFunctions.push(unlistenBackground);
 
   // 模型配置变更
-  const unlistenModel = await listen(TauriEvents.MODEL_CHANGED, (event) => {
+  const unlistenModel = await windowComm.onConfigUpdate(ModelConfigEvents.MODEL_CHANGED, (config) => {
     updateModelFromConfig();
   });
   unlistenFunctions.push(unlistenModel);
 
   // 旋转速度变更
-  const unlistenRotation = await listen(TauriEvents.ROTATION_CHANGED, (event) => {
-    modelManager.setRotationSpeed(Number(modelConfigStore.rotationSpeed));
+  const unlistenRotation = await windowComm.onConfigUpdate(ModelConfigEvents.ROTATION_CHANGED, (config) => {
+    modelManager.setRotationSpeed(Number(config.rotationSpeed));
   });
   unlistenFunctions.push(unlistenRotation);
 }

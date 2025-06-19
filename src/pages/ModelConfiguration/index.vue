@@ -215,8 +215,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch, onUnmounted } from "vue";
 import { useModelConfigStore } from "../../store/modelConfigStore";
+import { debounce } from "@/utils/debounce";
+import { windowComm } from "@/utils/window-communication";
 
 // 获取状态存储
 const store = useModelConfigStore();
@@ -227,11 +229,19 @@ const backgroundColor = ref(
 );
 
 // 从本地存储加载配置
-onMounted(() => {
+onMounted(async () => {
   store.loadFromLocalStorage();
   if (store.backgroundColor !== "transparent") {
     backgroundColor.value = store.backgroundColor;
   }
+  
+  // 初始化配置同步
+  await store.initConfigSync();
+  
+  // 延迟请求其他窗口的配置状态
+  setTimeout(async () => {
+    await windowComm.requestConfigSync();
+  }, 500);
 });
 
 // 保存配置到本地存储
@@ -277,34 +287,71 @@ const showToast = (message: string) => {
   }, 100);
 };
 
-// 监听配置变化确保数值类型一致
+// 创建防抖的更新函数
+const debouncedLightUpdate = debounce(() => {
+  store.updateLightConfig({
+    lightIntensity: store.lightIntensity,
+    lightColor: store.lightColor,
+    lightPosition: store.lightPosition,
+  });
+}, 300);
+
+const debouncedModelUpdate = debounce(() => {
+  store.updateModelConfig({
+    modelScale: store.modelScale,
+    modelAutoRotate: store.modelAutoRotate,
+    modelFloatAnimation: store.modelFloatAnimation,
+  });
+}, 300);
+
+const debouncedCameraUpdate = debounce(() => {
+  store.updateCameraConfig({
+    cameraDistance: store.cameraDistance,
+    cameraFov: store.cameraFov,
+  });
+}, 300);
+
+const debouncedRotationUpdate = debounce(() => {
+  store.updateRotationSpeed(store.rotationSpeed);
+}, 300);
+
+// 监听配置变化并触发防抖更新
 watch(
-  () => [
-    store.lightIntensity,
-    store.modelScale,
-    store.cameraDistance,
-    store.cameraFov,
-    store.rotationSpeed,
-  ],
-  ([lightIntensity, modelScale, cameraDistance, cameraFov, rotationSpeed]) => {
-    store.lightIntensity = Number(lightIntensity);
-    store.modelScale = Number(modelScale);
-    store.cameraDistance = Number(cameraDistance);
-    store.cameraFov = Number(cameraFov);
-    store.rotationSpeed = Number(rotationSpeed);
+  () => [store.lightIntensity, store.lightColor, store.lightPosition],
+  () => debouncedLightUpdate(),
+  { deep: true }
+);
+
+watch(
+  () => [store.modelScale, store.modelAutoRotate, store.modelFloatAnimation],
+  () => debouncedModelUpdate()
+);
+
+watch(
+  () => [store.cameraDistance, store.cameraFov],
+  () => debouncedCameraUpdate()
+);
+
+watch(
+  () => store.rotationSpeed,
+  () => debouncedRotationUpdate()
+);
+
+
+// 监听背景颜色变化，同步到本地ref
+watch(
+  () => store.backgroundColor,
+  (newColor) => {
+    if (newColor !== "transparent") {
+      backgroundColor.value = newColor;
+    }
   }
 );
 
-// 监听光源位置变化确保数值类型一致
-watch(
-  () => store.lightPosition,
-  (position) => {
-    store.lightPosition.x = Number(position.x);
-    store.lightPosition.y = Number(position.y);
-    store.lightPosition.z = Number(position.z);
-  },
-  { deep: true }
-);
+// 清理资源
+onUnmounted(() => {
+  // 如果需要的话，可以在这里清理监听器
+});
 </script>
 
 <style>

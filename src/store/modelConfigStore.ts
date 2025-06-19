@@ -1,6 +1,6 @@
-import { emit, listen } from "@tauri-apps/api/event";
 import { defineStore } from "pinia";
 import * as THREE from "three";
+import { windowComm, CONFIG_EVENTS } from "@/utils/window-communication";
 
 export interface ModelConfigState {
   // 光源配置
@@ -28,14 +28,14 @@ export interface ModelConfigState {
   rotationSpeed: number;
 }
 
-// Tauri IPC事件名称常量
-export const TauriEvents = {
-  LIGHT_CHANGED: "model-config:light-changed",
-  MODEL_CHANGED: "model-config:model-changed",
-  CAMERA_CHANGED: "model-config:camera-changed",
-  BACKGROUND_CHANGED: "model-config:background-changed",
-  ROTATION_CHANGED: "model-config:rotation-changed",
-  CONFIG_CHANGED: "model-config:config-changed",
+// 配置变更事件处理器
+export const ModelConfigEvents = {
+  LIGHT_CHANGED: CONFIG_EVENTS.LIGHT_UPDATE,
+  MODEL_CHANGED: CONFIG_EVENTS.MODEL_UPDATE,
+  CAMERA_CHANGED: CONFIG_EVENTS.CAMERA_UPDATE,
+  BACKGROUND_CHANGED: CONFIG_EVENTS.BACKGROUND_UPDATE,
+  ROTATION_CHANGED: CONFIG_EVENTS.ANIMATION_UPDATE,
+  CONFIG_CHANGED: CONFIG_EVENTS.FULL_CONFIG_SYNC,
 };
 
 export const useModelConfigStore = defineStore("modelConfig", {
@@ -83,8 +83,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
         };
       }
 
-      // 使用Tauri IPC发送事件
-      emit(TauriEvents.LIGHT_CHANGED, {
+      // 广播光源配置更新
+      windowComm.broadcastConfig(ModelConfigEvents.LIGHT_CHANGED, {
         lightIntensity: this.lightIntensity,
         lightColor: this.lightColor,
         lightPosition: this.lightPosition,
@@ -106,8 +106,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
         this.modelFloatAnimation = Boolean(config.modelFloatAnimation);
       }
 
-      // 使用Tauri IPC发送事件
-      emit(TauriEvents.MODEL_CHANGED, {
+      // 广播模型配置更新
+      windowComm.broadcastConfig(ModelConfigEvents.MODEL_CHANGED, {
         modelScale: this.modelScale,
         modelAutoRotate: this.modelAutoRotate,
         modelFloatAnimation: this.modelFloatAnimation,
@@ -122,8 +122,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
         this.cameraFov = Number(config.cameraFov);
       }
 
-      // 使用Tauri IPC发送事件
-      emit(TauriEvents.CAMERA_CHANGED, {
+      // 广播相机配置更新
+      windowComm.broadcastConfig(ModelConfigEvents.CAMERA_CHANGED, {
         cameraDistance: this.cameraDistance,
         cameraFov: this.cameraFov,
       });
@@ -132,8 +132,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
     updateBackgroundConfig(backgroundColor: string) {
       this.backgroundColor = backgroundColor;
 
-      // 使用Tauri IPC发送事件
-      emit(TauriEvents.BACKGROUND_CHANGED, {
+      // 广播背景配置更新
+      windowComm.broadcastConfig(ModelConfigEvents.BACKGROUND_CHANGED, {
         backgroundColor: this.backgroundColor,
       });
     },
@@ -141,8 +141,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
     updateRotationSpeed(speed: number) {
       this.rotationSpeed = Number(speed);
 
-      // 使用Tauri IPC发送事件
-      emit(TauriEvents.ROTATION_CHANGED, {
+      // 广播旋转速度配置更新
+      windowComm.broadcastConfig(ModelConfigEvents.ROTATION_CHANGED, {
         rotationSpeed: this.rotationSpeed,
       });
     },
@@ -169,8 +169,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
         })
       );
 
-      // 使用Tauri IPC发送配置更改事件
-      emit(TauriEvents.CONFIG_CHANGED, this.$state);
+      // 广播完整配置更新
+      windowComm.broadcastConfig(ModelConfigEvents.CONFIG_CHANGED, this.$state);
     },
 
     // 从本地存储加载配置
@@ -204,8 +204,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
 
           this.$patch(config);
 
-          // 使用Tauri IPC发送配置更改事件
-          emit(TauriEvents.CONFIG_CHANGED, this.$state);
+          // 广播配置加载完成
+          windowComm.broadcastConfig(ModelConfigEvents.CONFIG_CHANGED, this.$state);
         } catch (e) {
           console.error("加载配置失败", e);
         }
@@ -216,8 +216,55 @@ export const useModelConfigStore = defineStore("modelConfig", {
     resetToDefaults() {
       this.$reset();
 
-      // 使用Tauri IPC发送配置更改事件
-      emit(TauriEvents.CONFIG_CHANGED, this.$state);
+      // 广播配置重置
+      windowComm.broadcastConfig(ModelConfigEvents.CONFIG_CHANGED, this.$state);
+    },
+
+    // 初始化配置同步监听
+    async initConfigSync() {
+      // 监听光源配置更新
+      await windowComm.onConfigUpdate(ModelConfigEvents.LIGHT_CHANGED, (config) => {
+        this.$patch({
+          lightIntensity: config.lightIntensity,
+          lightColor: config.lightColor,
+          lightPosition: config.lightPosition,
+        });
+      });
+
+      // 监听模型配置更新
+      await windowComm.onConfigUpdate(ModelConfigEvents.MODEL_CHANGED, (config) => {
+        this.$patch({
+          modelScale: config.modelScale,
+          modelAutoRotate: config.modelAutoRotate,
+          modelFloatAnimation: config.modelFloatAnimation,
+        });
+      });
+
+      // 监听相机配置更新
+      await windowComm.onConfigUpdate(ModelConfigEvents.CAMERA_CHANGED, (config) => {
+        this.$patch({
+          cameraDistance: config.cameraDistance,
+          cameraFov: config.cameraFov,
+        });
+      });
+
+      // 监听背景配置更新
+      await windowComm.onConfigUpdate(ModelConfigEvents.BACKGROUND_CHANGED, (config) => {
+        this.backgroundColor = config.backgroundColor;
+      });
+
+      // 监听动画配置更新
+      await windowComm.onConfigUpdate(ModelConfigEvents.ROTATION_CHANGED, (config) => {
+        this.rotationSpeed = config.rotationSpeed;
+      });
+
+      // 监听完整配置同步
+      await windowComm.onConfigUpdate(ModelConfigEvents.CONFIG_CHANGED, (config: ModelConfigState) => {
+        this.$patch(config);
+      });
+
+      // 设置配置请求处理器
+      windowComm.onConfigRequest(() => this.$state as ModelConfigState);
     },
   },
 
