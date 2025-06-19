@@ -10,7 +10,7 @@ import { Window } from "@tauri-apps/api/window";
 import * as THREE from "three";
 import type { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
-import { ModelManager } from "./ModelManager";
+import { ModelManager } from "@/components/ModelManager";
 
 const container = ref<HTMLDivElement | null>(null);
 let scene: THREE.Scene;
