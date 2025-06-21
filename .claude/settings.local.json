@@ -5,7 +5,8 @@
       "Bash(rg:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(pnpm remove:*)"
+      "Bash(pnpm remove:*)",
+      "Bash(npm run type-check:*)"
     ],
     "deny": []
   }

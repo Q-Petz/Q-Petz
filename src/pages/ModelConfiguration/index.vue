@@ -1,62 +1,250 @@
 <template>
   <div class="overflow-y-auto model-configuration">
     <h1>模型参数配置</h1>
-
-    <div class="config-card">
+    
+    <div class="config-grid">
+      <div class="config-card">
       <div class="card-header">
         <div class="header-icon light-icon"></div>
         <h2>光源配置</h2>
+        <div class="add-light-container">
+          <button class="add-light-button" @click="toggleAddLightMenu">
+            <span class="add-icon">+</span>
+            添加光源
+          </button>
+          
+          <!-- 添加光源菜单 -->
+          <div v-if="showAddLightMenu" class="add-light-menu" @click.stop>
+            <button @click.stop="addLight(LightType.AMBIENT)" class="light-type-button">
+              <span class="light-type-icon ambient-icon"></span>
+              环境光
+            </button>
+            <button @click.stop="addLight(LightType.DIRECTIONAL)" class="light-type-button">
+              <span class="light-type-icon directional-icon"></span>
+              方向光
+            </button>
+            <button @click.stop="addLight(LightType.POINT)" class="light-type-button">
+              <span class="light-type-icon point-icon"></span>
+              点光源
+            </button>
+            <button @click.stop="addLight(LightType.SPOT)" class="light-type-button">
+              <span class="light-type-icon spot-icon"></span>
+              聚光灯
+            </button>
+          </div>
+        </div>
       </div>
+
       <div class="config-content">
-        <div class="config-item">
-          <label>光源强度</label>
-          <div class="slider-container">
-            <input
-              type="range"
-              v-model.number="store.lightIntensity"
-              min="0"
-              max="10"
-              step="0.1"
-            />
-            <span class="value-display">{{
-              Number(store.lightIntensity).toFixed(1)
-            }}</span>
+        <!-- 光源列表 -->
+        <div v-for="light in store.lights" :key="light.id" class="light-item">
+          <div class="light-header">
+            <div class="light-title">
+              <span class="light-type-badge" :class="`${light.type}-badge`">
+                {{ getLightTypeName(light.type) }}
+              </span>
+              <input
+                type="text"
+                v-model="light.name"
+                class="light-name-input"
+                @blur="updateLightName(light)"
+              />
+            </div>
+            <div class="light-controls">
+              <label class="light-switch">
+                <input
+                  type="checkbox"
+                  v-model="light.enabled"
+                  @change="store.toggleLight(light.id)"
+                />
+                <span class="slider round"></span>
+              </label>
+              <button
+                class="delete-light-button"
+                @click="store.removeLight(light.id)"
+                :disabled="store.lightsCount <= 1"
+              >
+                <span class="delete-icon">×</span>
+              </button>
+            </div>
           </div>
-        </div>
-        <div class="config-item">
-          <label>光源颜色</label>
-          <div class="color-picker">
-            <input type="color" v-model="store.lightColor" />
-            <span class="color-value">{{ store.lightColor }}</span>
-          </div>
-        </div>
-        <div class="config-item position-inputs-container">
-          <label>光源位置</label>
-          <div class="position-inputs">
-            <div class="position-input">
-              <span class="axis">X</span>
-              <input
-                type="number"
-                v-model.number="store.lightPosition.x"
-                step="0.1"
-              />
+
+          <div v-show="light.enabled" class="light-config">
+            <!-- 光源强度 -->
+            <div class="config-item">
+              <label>强度</label>
+              <div class="slider-container">
+                <input
+                  type="range"
+                  v-model.number="light.intensity"
+                  min="0"
+                  max="5"
+                  step="0.1"
+                  @input="updateLight(light)"
+                />
+                <span class="value-display">{{ light.intensity.toFixed(1) }}</span>
+              </div>
             </div>
-            <div class="position-input">
-              <span class="axis">Y</span>
-              <input
-                type="number"
-                v-model.number="store.lightPosition.y"
-                step="0.1"
-              />
+
+            <!-- 光源颜色 -->
+            <div class="config-item">
+              <label>颜色</label>
+              <div class="color-picker">
+                <input
+                  type="color"
+                  v-model="light.color"
+                  @input="updateLight(light)"
+                />
+                <span class="color-value">{{ light.color }}</span>
+              </div>
             </div>
-            <div class="position-input">
-              <span class="axis">Z</span>
-              <input
-                type="number"
-                v-model.number="store.lightPosition.z"
-                step="0.1"
+
+            <!-- 位置控制（环境光除外） -->
+            <div v-if="light.type !== LightType.AMBIENT" class="config-item">
+              <label>位置</label>
+              <!-- 3D预览控制 -->
+              <LightDirectionPreview
+                :light="light"
+                v-model="light.position"
+                @update:modelValue="updateLightPosition(light)"
+                @update:target="(target) => updateLightTarget(light, target)"
               />
+              <!-- 精确数值输入 -->
+              <div class="position-inputs">
+                <div class="position-input">
+                  <span class="axis">X</span>
+                  <input
+                    type="number"
+                    v-model.number="light.position.x"
+                    step="0.1"
+                    @input="updateLightPosition(light)"
+                  />
+                </div>
+                <div class="position-input">
+                  <span class="axis">Y</span>
+                  <input
+                    type="number"
+                    v-model.number="light.position.y"
+                    step="0.1"
+                    @input="updateLightPosition(light)"
+                  />
+                </div>
+                <div class="position-input">
+                  <span class="axis">Z</span>
+                  <input
+                    type="number"
+                    v-model.number="light.position.z"
+                    step="0.1"
+                    @input="updateLightPosition(light)"
+                  />
+                </div>
+              </div>
             </div>
+
+            <!-- 方向光和聚光灯的目标 -->
+            <div
+              v-if="light.type === LightType.DIRECTIONAL || light.type === LightType.SPOT"
+              class="config-item"
+            >
+              <label>目标位置</label>
+              <div class="position-inputs">
+                <div class="position-input">
+                  <span class="axis">X</span>
+                  <input
+                    type="number"
+                    v-model.number="light.target.x"
+                    step="0.1"
+                    @input="updateLightTarget(light)"
+                  />
+                </div>
+                <div class="position-input">
+                  <span class="axis">Y</span>
+                  <input
+                    type="number"
+                    v-model.number="light.target.y"
+                    step="0.1"
+                    @input="updateLightTarget(light)"
+                  />
+                </div>
+                <div class="position-input">
+                  <span class="axis">Z</span>
+                  <input
+                    type="number"
+                    v-model.number="light.target.z"
+                    step="0.1"
+                    @input="updateLightTarget(light)"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <!-- 聚光灯特有属性 -->
+            <template v-if="light.type === LightType.SPOT">
+              <div class="config-item">
+                <label>角度</label>
+                <div class="slider-container">
+                  <input
+                    type="range"
+                    v-model.number="light.angle"
+                    min="0"
+                    :max="Math.PI / 2"
+                    step="0.01"
+                    @input="updateLight(light)"
+                  />
+                  <span class="value-display">
+                    {{ ((light.angle * 180) / Math.PI).toFixed(1) }}°
+                  </span>
+                </div>
+              </div>
+              <div class="config-item">
+                <label>半影</label>
+                <div class="slider-container">
+                  <input
+                    type="range"
+                    v-model.number="light.penumbra"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    @input="updateLight(light)"
+                  />
+                  <span class="value-display">{{ light.penumbra.toFixed(2) }}</span>
+                </div>
+              </div>
+            </template>
+
+            <!-- 点光源和聚光灯的衰减 -->
+            <template v-if="light.type === LightType.POINT || light.type === LightType.SPOT">
+              <div class="config-item">
+                <label>衰减</label>
+                <div class="slider-container">
+                  <input
+                    type="range"
+                    v-model.number="light.decay"
+                    min="0"
+                    max="5"
+                    step="0.1"
+                    @input="updateLight(light)"
+                  />
+                  <span class="value-display">{{ light.decay.toFixed(1) }}</span>
+                </div>
+              </div>
+              <div class="config-item">
+                <label>距离</label>
+                <div class="slider-container">
+                  <input
+                    type="range"
+                    v-model.number="light.distance"
+                    min="0"
+                    max="50"
+                    step="1"
+                    @input="updateLight(light)"
+                  />
+                  <span class="value-display">
+                    {{ light.distance === 0 ? "∞" : light.distance }}
+                  </span>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -200,6 +388,7 @@
         </div>
       </div>
     </div>
+    </div>
 
     <div class="action-buttons">
       <button class="save-button" @click="saveConfig">
@@ -216,12 +405,23 @@
 
 <script setup lang="ts">
 import { onMounted, ref, watch, onUnmounted } from "vue";
-import { useModelConfigStore } from "../../store/modelConfigStore";
+import { useModelConfigStore, LightType, Light } from "../../store/modelConfigStore";
 import { debounce } from "@/utils/debounce";
 import { windowComm } from "@/utils/window-communication";
+import LightDirectionPreview from "@/components/LightDirectionPreview.vue";
 
 // 获取状态存储
 const store = useModelConfigStore();
+
+// 添加光源菜单显示状态
+const showAddLightMenu = ref(false);
+
+// 切换添加光源菜单
+const toggleAddLightMenu = () => {
+  console.log('Toggle menu, current state:', showAddLightMenu.value);
+  showAddLightMenu.value = !showAddLightMenu.value;
+  console.log('New state:', showAddLightMenu.value);
+};
 
 // 背景颜色需要特殊处理，因为'transparent'不是有效的颜色值
 const backgroundColor = ref(
@@ -242,7 +442,108 @@ onMounted(async () => {
   setTimeout(async () => {
     await windowComm.requestConfigSync();
   }, 500);
+  
+  // 添加点击外部关闭菜单的事件监听
+  document.addEventListener('click', handleClickOutside);
 });
+
+// 处理点击外部关闭菜单
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement;
+  if (!target.closest('.add-light-button') && !target.closest('.add-light-menu')) {
+    showAddLightMenu.value = false;
+  }
+};
+
+// 获取光源类型名称
+const getLightTypeName = (type: LightType): string => {
+  const names = {
+    [LightType.AMBIENT]: "环境光",
+    [LightType.DIRECTIONAL]: "方向光",
+    [LightType.POINT]: "点光源",
+    [LightType.SPOT]: "聚光灯",
+  };
+  return names[type];
+};
+
+// 添加光源
+const addLight = (type: LightType) => {
+  console.log('Adding light of type:', type);
+  store.addLight(type);
+  showAddLightMenu.value = false;
+  console.log('Light added, current lights:', store.lights);
+};
+
+// 创建防抖的更新函数
+const debouncedLightUpdate = debounce((light: Light) => {
+  store.updateLight(light.id, light);
+}, 300);
+
+const debouncedLightPositionUpdate = debounce((light: Light) => {
+  store.updateLightPosition(light.id, light.position);
+}, 100);
+
+const debouncedLightTargetUpdate = debounce((light: Light) => {
+  if (light.target) {
+    store.updateLightTarget(light.id, light.target);
+  }
+}, 300);
+
+// 更新光源
+const updateLight = (light: Light) => {
+  debouncedLightUpdate(light);
+};
+
+const updateLightName = (light: Light) => {
+  store.updateLight(light.id, { name: light.name });
+};
+
+const updateLightPosition = (light: Light) => {
+  debouncedLightPositionUpdate(light);
+};
+
+const updateLightTarget = (light: Light, target?: { x: number; y: number; z: number }) => {
+  if (target) {
+    light.target = target;
+  }
+  debouncedLightTargetUpdate(light);
+};
+
+// 创建防抖的更新函数
+const debouncedModelUpdate = debounce(() => {
+  store.updateModelConfig({
+    modelScale: store.modelScale,
+    modelAutoRotate: store.modelAutoRotate,
+    modelFloatAnimation: store.modelFloatAnimation,
+  });
+}, 300);
+
+const debouncedCameraUpdate = debounce(() => {
+  store.updateCameraConfig({
+    cameraDistance: store.cameraDistance,
+    cameraFov: store.cameraFov,
+  });
+}, 300);
+
+const debouncedRotationUpdate = debounce(() => {
+  store.updateRotationSpeed(store.rotationSpeed);
+}, 300);
+
+// 监听配置变化并触发防抖更新
+watch(
+  () => [store.modelScale, store.modelAutoRotate, store.modelFloatAnimation],
+  () => debouncedModelUpdate()
+);
+
+watch(
+  () => [store.cameraDistance, store.cameraFov],
+  () => debouncedCameraUpdate()
+);
+
+watch(
+  () => store.rotationSpeed,
+  () => debouncedRotationUpdate()
+);
 
 // 保存配置到本地存储
 const saveConfig = () => {
@@ -287,57 +588,6 @@ const showToast = (message: string) => {
   }, 100);
 };
 
-// 创建防抖的更新函数
-const debouncedLightUpdate = debounce(() => {
-  store.updateLightConfig({
-    lightIntensity: store.lightIntensity,
-    lightColor: store.lightColor,
-    lightPosition: store.lightPosition,
-  });
-}, 300);
-
-const debouncedModelUpdate = debounce(() => {
-  store.updateModelConfig({
-    modelScale: store.modelScale,
-    modelAutoRotate: store.modelAutoRotate,
-    modelFloatAnimation: store.modelFloatAnimation,
-  });
-}, 300);
-
-const debouncedCameraUpdate = debounce(() => {
-  store.updateCameraConfig({
-    cameraDistance: store.cameraDistance,
-    cameraFov: store.cameraFov,
-  });
-}, 300);
-
-const debouncedRotationUpdate = debounce(() => {
-  store.updateRotationSpeed(store.rotationSpeed);
-}, 300);
-
-// 监听配置变化并触发防抖更新
-watch(
-  () => [store.lightIntensity, store.lightColor, store.lightPosition],
-  () => debouncedLightUpdate(),
-  { deep: true }
-);
-
-watch(
-  () => [store.modelScale, store.modelAutoRotate, store.modelFloatAnimation],
-  () => debouncedModelUpdate()
-);
-
-watch(
-  () => [store.cameraDistance, store.cameraFov],
-  () => debouncedCameraUpdate()
-);
-
-watch(
-  () => store.rotationSpeed,
-  () => debouncedRotationUpdate()
-);
-
-
 // 监听背景颜色变化，同步到本地ref
 watch(
   () => store.backgroundColor,
@@ -350,7 +600,8 @@ watch(
 
 // 清理资源
 onUnmounted(() => {
-  // 如果需要的话，可以在这里清理监听器
+  // 移除事件监听器
+  document.removeEventListener('click', handleClickOutside);
 });
 </script>
 
@@ -380,56 +631,174 @@ onUnmounted(() => {
 
 <style scoped>
   .model-configuration {
-    padding: 32px;
-    max-width: 800px;
-    margin: 0 auto;
+    padding: 20px;
+    width: 100%;
     font-family: "Roboto", "Noto Sans SC", sans-serif;
     color: #1f1f1f;
     height: 100vh;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+  }
+
+  @media (min-width: 768px) {
+    .model-configuration {
+      padding: 24px;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .model-configuration {
+      padding: 28px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .model-configuration {
+      padding: 32px;
+    }
   }
 
   .overflow-y-auto {
     overflow-y: auto;
     height: 100vh;
-    max-height: 100%;
+    max-height: 100vh;
   }
 
   h1 {
-    text-align: center;
-    margin-bottom: 40px;
+    text-align: left;
+    margin-bottom: 20px;
     font-weight: 500;
     color: #1f1f1f;
+    font-size: 24px;
+  }
+
+  @media (min-width: 768px) {
+    h1 {
+      margin-bottom: 24px;
+      font-size: 28px;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    h1 {
+      font-size: 32px;
+    }
+  }
+
+  .config-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    flex: 1;
+    overflow-y: auto;
+    padding-bottom: 16px;
+    max-height: calc(100vh - 180px);
+  }
+
+  @media (min-width: 768px) {
+    .config-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .config-grid {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .config-grid {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 22px;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .config-grid {
+      grid-template-columns: repeat(5, 1fr);
+      gap: 24px;
+    }
+  }
+
+  @media (min-width: 2560px) {
+    .config-grid {
+      grid-template-columns: repeat(6, 1fr);
+      gap: 28px;
+    }
   }
 
   .config-card {
     background-color: #ffffff;
-    border-radius: 16px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-    overflow: hidden;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    overflow: visible;
     transition: box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
+    height: fit-content;
   }
 
   .config-card:hover {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
   }
 
+  /* 让光源配置卡片跨越多列 */
+  .config-card:first-child {
+    grid-column: 1 / -1;
+  }
+
+  @media (min-width: 768px) {
+    .config-card:first-child {
+      grid-column: span 2;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .config-card:first-child {
+      grid-column: span 3;
+    }
+  }
+
+  @media (min-width: 1920px) {
+    .config-card:first-child {
+      grid-column: span 4;
+    }
+  }
+
+  @media (min-width: 2560px) {
+    .config-card:first-child {
+      grid-column: span 5;
+    }
+  }
+
   .card-header {
     display: flex;
     align-items: center;
-    padding: 20px 24px;
+    padding: 12px 16px;
     background-color: #f8f9fa;
     border-bottom: 1px solid #f0f0f0;
+    position: relative;
+  }
+
+  @media (min-width: 768px) {
+    .card-header {
+      padding: 16px 20px;
+    }
   }
 
   .header-icon {
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
-    margin-right: 16px;
+    margin-right: 12px;
   }
 
   .light-icon {
@@ -462,16 +831,242 @@ onUnmounted(() => {
 
   .card-header h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: 16px;
     font-weight: 500;
+    flex-grow: 1;
+  }
+
+  @media (min-width: 768px) {
+    .card-header h2 {
+      font-size: 18px;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .card-header h2 {
+      font-size: 20px;
+    }
+  }
+
+  .add-light-button {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.3s;
+  }
+
+  .add-light-button:hover {
+    background-color: #1967d2;
+  }
+
+  .add-icon {
+    font-size: 18px;
+    margin-right: 6px;
+  }
+
+  .add-light-container {
+    position: relative;
+  }
+
+  .add-light-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 160px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  .light-type-button {
+    background: none;
+    border: none;
+    padding: 12px 16px;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+  }
+
+  .light-type-button:hover {
+    background-color: #f5f5f5;
+  }
+
+  .light-type-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    background-size: contain;
   }
 
   .config-content {
-    padding: 24px;
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+    max-height: 60vh;
+  }
+
+  @media (min-width: 768px) {
+    .config-content {
+      padding: 20px;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .config-content {
+      padding: 24px;
+    }
+  }
+
+  /* 对于光源配置，允许更高的高度 */
+  .config-card:first-child .config-content {
+    max-height: 70vh;
+  }
+
+  @media (min-width: 1920px) {
+    .config-card:first-child .config-content {
+      max-height: 75vh;
+    }
+  }
+
+  .light-item {
+    margin-bottom: 16px;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+  }
+
+  @media (min-width: 768px) {
+    .light-item {
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+  }
+
+  .light-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .light-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .light-type-badge {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+  }
+
+  .ambient-badge {
+    background-color: #e3f2fd;
+    color: #1976d2;
+  }
+
+  .directional-badge {
+    background-color: #fff3e0;
+    color: #f57c00;
+  }
+
+  .point-badge {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+  }
+
+  .spot-badge {
+    background-color: #e8f5e9;
+    color: #388e3c;
+  }
+
+  .light-name-input {
+    border: none;
+    background: none;
+    font-size: 16px;
+    font-weight: 500;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+
+  .light-name-input:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .light-name-input:focus {
+    background-color: white;
+    outline: 2px solid #1a73e8;
+  }
+
+  .light-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .light-switch {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+  }
+
+  .light-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .delete-light-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+
+  .delete-light-button:hover:not(:disabled) {
+    background-color: rgba(255, 0, 0, 0.1);
+  }
+
+  .delete-light-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .delete-icon {
+    font-size: 24px;
+    color: #666;
+  }
+
+  .light-config {
+    margin-top: 16px;
   }
 
   .config-item {
-    margin-bottom: 24px;
+    margin-bottom: 16px;
   }
 
   .config-item:last-child {
@@ -480,8 +1075,8 @@ onUnmounted(() => {
 
   .config-item label {
     display: block;
-    font-size: 14px;
-    margin-bottom: 12px;
+    font-size: 13px;
+    margin-bottom: 8px;
     color: #5f6368;
     font-weight: 500;
   }
@@ -566,6 +1161,7 @@ onUnmounted(() => {
   .position-inputs {
     display: flex;
     gap: 16px;
+    margin-top: 12px;
   }
 
   .position-input {
@@ -606,21 +1202,48 @@ onUnmounted(() => {
     display: flex;
     justify-content: center;
     gap: 16px;
-    margin-top: 32px;
+    padding: 20px;
+    background: white;
+    border-top: 1px solid #f0f0f0;
+    margin-top: auto;
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+  }
+
+  @media (min-width: 768px) {
+    .action-buttons {
+      gap: 20px;
+      padding: 24px;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .action-buttons {
+      gap: 24px;
+      padding: 28px;
+    }
   }
 
   button {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 12px 24px;
+    padding: 8px 16px;
     border: none;
-    border-radius: 24px;
-    font-size: 16px;
+    border-radius: 20px;
+    font-size: 14px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.3s;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+  }
+
+  @media (min-width: 768px) {
+    button {
+      padding: 10px 20px;
+      font-size: 15px;
+    }
   }
 
   .save-button {
@@ -644,9 +1267,9 @@ onUnmounted(() => {
   }
 
   .button-icon {
-    width: 20px;
-    height: 20px;
-    margin-right: 8px;
+    width: 18px;
+    height: 18px;
+    margin-right: 6px;
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;

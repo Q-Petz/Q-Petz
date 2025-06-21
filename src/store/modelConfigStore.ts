@@ -2,15 +2,42 @@ import { defineStore } from "pinia";
 import * as THREE from "three";
 import { windowComm, CONFIG_EVENTS } from "@/utils/window-communication";
 
-export interface ModelConfigState {
-  // 光源配置
-  lightIntensity: number;
-  lightColor: string;
-  lightPosition: {
+export enum LightType {
+  AMBIENT = "ambient",
+  DIRECTIONAL = "directional",
+  POINT = "point",
+  SPOT = "spot",
+}
+
+export interface Light {
+  id: string;
+  type: LightType;
+  name: string;
+  intensity: number;
+  color: string;
+  position: {
     x: number;
     y: number;
     z: number;
   };
+  // 方向光特有属性
+  target?: {
+    x: number;
+    y: number;
+    z: number;
+  };
+  // 聚光灯特有属性
+  angle?: number;
+  penumbra?: number;
+  decay?: number;
+  distance?: number;
+  // 是否启用
+  enabled: boolean;
+}
+
+export interface ModelConfigState {
+  // 光源配置（支持多光源）
+  lights: Light[];
 
   // 模型配置
   modelScale: number;
@@ -30,7 +57,7 @@ export interface ModelConfigState {
 
 // 配置变更事件处理器
 export const ModelConfigEvents = {
-  LIGHT_CHANGED: CONFIG_EVENTS.LIGHT_UPDATE,
+  LIGHTS_CHANGED: CONFIG_EVENTS.LIGHT_UPDATE,
   MODEL_CHANGED: CONFIG_EVENTS.MODEL_UPDATE,
   CAMERA_CHANGED: CONFIG_EVENTS.CAMERA_UPDATE,
   BACKGROUND_CHANGED: CONFIG_EVENTS.BACKGROUND_UPDATE,
@@ -38,16 +65,33 @@ export const ModelConfigEvents = {
   CONFIG_CHANGED: CONFIG_EVENTS.FULL_CONFIG_SYNC,
 };
 
+// 默认光源配置
+const createDefaultLights = (): Light[] => [
+  {
+    id: "ambient-1",
+    type: LightType.AMBIENT,
+    name: "环境光",
+    intensity: 0.4,
+    color: "#ffffff",
+    position: { x: 0, y: 0, z: 0 },
+    enabled: true,
+  },
+  {
+    id: "directional-1",
+    type: LightType.DIRECTIONAL,
+    name: "主光源",
+    intensity: 1.6,
+    color: "#ffffff",
+    position: { x: 1, y: 1, z: 1 },
+    target: { x: 0, y: 0, z: 0 },
+    enabled: true,
+  },
+];
+
 export const useModelConfigStore = defineStore("modelConfig", {
   state: (): ModelConfigState => ({
     // 光源配置
-    lightIntensity: 2.0,
-    lightColor: "#ffffff",
-    lightPosition: {
-      x: 1,
-      y: 1,
-      z: 1,
-    },
+    lights: createDefaultLights(),
 
     // 模型配置
     modelScale: 3.0,
@@ -66,29 +110,111 @@ export const useModelConfigStore = defineStore("modelConfig", {
   }),
 
   actions: {
-    updateLightConfig(
-      config: Partial<Pick<ModelConfigState, "lightIntensity" | "lightColor" | "lightPosition">>
-    ) {
-      if (config.lightIntensity !== undefined) {
-        this.lightIntensity = Number(config.lightIntensity);
-      }
-      if (config.lightColor !== undefined) {
-        this.lightColor = config.lightColor;
-      }
-      if (config.lightPosition !== undefined) {
-        this.lightPosition = {
-          x: Number(config.lightPosition.x),
-          y: Number(config.lightPosition.y),
-          z: Number(config.lightPosition.z),
-        };
+    // 添加新光源
+    addLight(lightType: LightType) {
+      const newLight: Light = {
+        id: `${lightType}-${Date.now()}`,
+        type: lightType,
+        name: this.getDefaultLightName(lightType),
+        intensity: 1.0,
+        color: "#ffffff",
+        position: { x: 1, y: 1, z: 1 },
+        enabled: true,
+      };
+
+      // 根据光源类型设置默认属性
+      switch (lightType) {
+        case LightType.DIRECTIONAL:
+          newLight.target = { x: 0, y: 0, z: 0 };
+          break;
+        case LightType.SPOT:
+          newLight.target = { x: 0, y: 0, z: 0 };
+          newLight.angle = Math.PI / 4;
+          newLight.penumbra = 0.1;
+          newLight.decay = 2;
+          newLight.distance = 0;
+          break;
+        case LightType.POINT:
+          newLight.decay = 2;
+          newLight.distance = 0;
+          break;
       }
 
-      // 广播光源配置更新
-      windowComm.broadcastConfig(ModelConfigEvents.LIGHT_CHANGED, {
-        lightIntensity: this.lightIntensity,
-        lightColor: this.lightColor,
-        lightPosition: this.lightPosition,
+      this.lights.push(newLight);
+      this.broadcastLightsUpdate();
+    },
+
+    // 删除光源
+    removeLight(lightId: string) {
+      const index = this.lights.findIndex((light) => light.id === lightId);
+      if (index > -1) {
+        this.lights.splice(index, 1);
+        this.broadcastLightsUpdate();
+      }
+    },
+
+    // 更新单个光源
+    updateLight(lightId: string, updates: Partial<Light>) {
+      const light = this.lights.find((l) => l.id === lightId);
+      if (light) {
+        Object.assign(light, updates);
+        this.broadcastLightsUpdate();
+      }
+    },
+
+    // 更新光源位置
+    updateLightPosition(lightId: string, position: { x: number; y: number; z: number }) {
+      const light = this.lights.find((l) => l.id === lightId);
+      if (light) {
+        light.position = {
+          x: Number(position.x),
+          y: Number(position.y),
+          z: Number(position.z),
+        };
+        this.broadcastLightsUpdate();
+      }
+    },
+
+    // 更新光源目标（用于方向光和聚光灯）
+    updateLightTarget(lightId: string, target: { x: number; y: number; z: number }) {
+      const light = this.lights.find((l) => l.id === lightId);
+      if (light && (light.type === LightType.DIRECTIONAL || light.type === LightType.SPOT)) {
+        light.target = {
+          x: Number(target.x),
+          y: Number(target.y),
+          z: Number(target.z),
+        };
+        this.broadcastLightsUpdate();
+      }
+    },
+
+    // 切换光源启用状态
+    toggleLight(lightId: string) {
+      const light = this.lights.find((l) => l.id === lightId);
+      if (light) {
+        light.enabled = !light.enabled;
+        this.broadcastLightsUpdate();
+      }
+    },
+
+    // 广播光源更新
+    broadcastLightsUpdate() {
+      windowComm.broadcastConfig(ModelConfigEvents.LIGHTS_CHANGED, {
+        lights: this.lights,
       });
+    },
+
+    // 获取默认光源名称
+    getDefaultLightName(type: LightType): string {
+      const typeNames = {
+        [LightType.AMBIENT]: "环境光",
+        [LightType.DIRECTIONAL]: "方向光",
+        [LightType.POINT]: "点光源",
+        [LightType.SPOT]: "聚光灯",
+      };
+      const baseName = typeNames[type];
+      const count = this.lights.filter((l) => l.type === type).length;
+      return `${baseName} ${count + 1}`;
     },
 
     updateModelConfig(
@@ -152,13 +278,7 @@ export const useModelConfigStore = defineStore("modelConfig", {
       localStorage.setItem(
         "modelConfig",
         JSON.stringify({
-          lightIntensity: Number(this.lightIntensity),
-          lightColor: this.lightColor,
-          lightPosition: {
-            x: Number(this.lightPosition.x),
-            y: Number(this.lightPosition.y),
-            z: Number(this.lightPosition.z),
-          },
+          lights: this.lights,
           modelScale: Number(this.modelScale),
           modelAutoRotate: Boolean(this.modelAutoRotate),
           modelFloatAnimation: Boolean(this.modelFloatAnimation),
@@ -180,17 +300,33 @@ export const useModelConfigStore = defineStore("modelConfig", {
         try {
           const config = JSON.parse(savedConfig);
 
-          // 确保所有数值类型正确
-          if (config.lightIntensity !== undefined)
-            config.lightIntensity = Number(config.lightIntensity);
-          if (config.lightPosition) {
-            if (config.lightPosition.x !== undefined)
-              config.lightPosition.x = Number(config.lightPosition.x);
-            if (config.lightPosition.y !== undefined)
-              config.lightPosition.y = Number(config.lightPosition.y);
-            if (config.lightPosition.z !== undefined)
-              config.lightPosition.z = Number(config.lightPosition.z);
+          // 处理旧版本配置的兼容性
+          if (config.lightIntensity !== undefined && !config.lights) {
+            // 转换旧配置到新格式
+            config.lights = [
+              {
+                id: "ambient-1",
+                type: LightType.AMBIENT,
+                name: "环境光",
+                intensity: config.lightIntensity * 0.2,
+                color: config.lightColor || "#ffffff",
+                position: { x: 0, y: 0, z: 0 },
+                enabled: true,
+              },
+              {
+                id: "directional-1",
+                type: LightType.DIRECTIONAL,
+                name: "主光源",
+                intensity: config.lightIntensity * 0.8,
+                color: config.lightColor || "#ffffff",
+                position: config.lightPosition || { x: 1, y: 1, z: 1 },
+                target: { x: 0, y: 0, z: 0 },
+                enabled: true,
+              },
+            ];
           }
+
+          // 确保所有数值类型正确
           if (config.modelScale !== undefined) config.modelScale = Number(config.modelScale);
           if (config.modelAutoRotate !== undefined)
             config.modelAutoRotate = Boolean(config.modelAutoRotate);
@@ -215,6 +351,7 @@ export const useModelConfigStore = defineStore("modelConfig", {
     // 重置为默认配置
     resetToDefaults() {
       this.$reset();
+      this.lights = createDefaultLights();
 
       // 广播配置重置
       windowComm.broadcastConfig(ModelConfigEvents.CONFIG_CHANGED, this.$state);
@@ -223,12 +360,8 @@ export const useModelConfigStore = defineStore("modelConfig", {
     // 初始化配置同步监听
     async initConfigSync() {
       // 监听光源配置更新
-      await windowComm.onConfigUpdate(ModelConfigEvents.LIGHT_CHANGED, (config) => {
-        this.$patch({
-          lightIntensity: config.lightIntensity,
-          lightColor: config.lightColor,
-          lightPosition: config.lightPosition,
-        });
+      await windowComm.onConfigUpdate(ModelConfigEvents.LIGHTS_CHANGED, (config) => {
+        this.lights = config.lights;
       });
 
       // 监听模型配置更新
@@ -269,18 +402,19 @@ export const useModelConfigStore = defineStore("modelConfig", {
   },
 
   getters: {
-    // 获取THREE.js格式的颜色
-    lightColorObj(): THREE.Color {
-      return new THREE.Color(this.lightColor);
+    // 获取启用的光源
+    enabledLights(): Light[] {
+      return this.lights.filter((light) => light.enabled);
     },
 
-    // 获取THREE.js格式的位置向量
-    lightPositionVector(): THREE.Vector3 {
-      return new THREE.Vector3(
-        Number(this.lightPosition.x),
-        Number(this.lightPosition.y),
-        Number(this.lightPosition.z)
-      );
+    // 获取特定类型的光源
+    getLightsByType() {
+      return (type: LightType) => this.lights.filter((light) => light.type === type);
+    },
+
+    // 获取光源总数
+    lightsCount(): number {
+      return this.lights.length;
     },
   },
 });

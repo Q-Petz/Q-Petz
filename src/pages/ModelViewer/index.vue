@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { useModelEvents } from "@/hooks/useModelEvents";
-import { ModelConfigEvents, useModelConfigStore } from "@/store/modelConfigStore";
+import { ModelConfigEvents, useModelConfigStore, LightType, Light } from "@/store/modelConfigStore";
 import { windowComm } from "@/utils/window-communication";
 import { Window } from "@tauri-apps/api/window";
 import * as THREE from "three";
@@ -46,9 +46,8 @@ const modelConfigs = [
   // 可以添加更多模型配置
 ];
 
-// 光源引用
-let ambientLight: THREE.AmbientLight;
-let directionalLight: THREE.DirectionalLight;
+// 光源引用映射
+const lightsMap = new Map<string, THREE.Light>();
 
 async function init() {
   if (!container.value) return;
@@ -89,20 +88,8 @@ async function init() {
   renderer.setPixelRatio(window.devicePixelRatio);
   container.value.appendChild(renderer.domElement);
 
-  // 添加灯光
-  ambientLight = new THREE.AmbientLight(
-    modelConfigStore.lightColor,
-    Number(modelConfigStore.lightIntensity)
-  );
-  scene.add(ambientLight);
-
-  directionalLight = new THREE.DirectionalLight(
-    modelConfigStore.lightColor,
-    Number(modelConfigStore.lightIntensity)
-  );
-  const lightPos = modelConfigStore.lightPosition;
-  directionalLight.position.set(Number(lightPos.x), Number(lightPos.y), Number(lightPos.z));
-  scene.add(directionalLight);
+  // 添加光源
+  createLightsFromConfig();
 
   // 调试用
   // controls = new OrbitControls(camera, renderer.domElement);
@@ -184,24 +171,170 @@ function updateModelConfigs() {
   });
 }
 
+// 创建光源
+function createLightsFromConfig() {
+  // 清除现有光源
+  lightsMap.forEach((light) => {
+    scene.remove(light);
+    light.dispose?.();
+  });
+  lightsMap.clear();
+
+  // 创建新光源
+  modelConfigStore.enabledLights.forEach((lightConfig) => {
+    const light = createLight(lightConfig);
+    if (light) {
+      lightsMap.set(lightConfig.id, light);
+      scene.add(light);
+    }
+  });
+}
+
+// 根据配置创建单个光源
+function createLight(lightConfig: Light): THREE.Light | null {
+  let light: THREE.Light | null = null;
+
+  switch (lightConfig.type) {
+    case LightType.AMBIENT:
+      light = new THREE.AmbientLight(
+        new THREE.Color(lightConfig.color),
+        lightConfig.intensity
+      );
+      break;
+
+    case LightType.DIRECTIONAL:
+      light = new THREE.DirectionalLight(
+        new THREE.Color(lightConfig.color),
+        lightConfig.intensity
+      );
+      light.position.set(
+        lightConfig.position.x,
+        lightConfig.position.y,
+        lightConfig.position.z
+      );
+      if (lightConfig.target) {
+        (light as THREE.DirectionalLight).target.position.set(
+          lightConfig.target.x,
+          lightConfig.target.y,
+          lightConfig.target.z
+        );
+        scene.add((light as THREE.DirectionalLight).target);
+      }
+      break;
+
+    case LightType.POINT:
+      light = new THREE.PointLight(
+        new THREE.Color(lightConfig.color),
+        lightConfig.intensity,
+        lightConfig.distance || 0,
+        lightConfig.decay || 2
+      );
+      light.position.set(
+        lightConfig.position.x,
+        lightConfig.position.y,
+        lightConfig.position.z
+      );
+      break;
+
+    case LightType.SPOT:
+      light = new THREE.SpotLight(
+        new THREE.Color(lightConfig.color),
+        lightConfig.intensity,
+        lightConfig.distance || 0,
+        lightConfig.angle || Math.PI / 4,
+        lightConfig.penumbra || 0.1,
+        lightConfig.decay || 2
+      );
+      light.position.set(
+        lightConfig.position.x,
+        lightConfig.position.y,
+        lightConfig.position.z
+      );
+      if (lightConfig.target) {
+        (light as THREE.SpotLight).target.position.set(
+          lightConfig.target.x,
+          lightConfig.target.y,
+          lightConfig.target.z
+        );
+        scene.add((light as THREE.SpotLight).target);
+      }
+      break;
+  }
+
+  return light;
+}
+
+// 更新单个光源
+function updateLight(lightConfig: Light) {
+  const existingLight = lightsMap.get(lightConfig.id);
+  
+  if (!lightConfig.enabled && existingLight) {
+    // 如果光源被禁用，移除它
+    scene.remove(existingLight);
+    existingLight.dispose?.();
+    lightsMap.delete(lightConfig.id);
+    return;
+  }
+  
+  if (lightConfig.enabled && !existingLight) {
+    // 如果光源被启用但不存在，创建它
+    const newLight = createLight(lightConfig);
+    if (newLight) {
+      lightsMap.set(lightConfig.id, newLight);
+      scene.add(newLight);
+    }
+    return;
+  }
+  
+  if (existingLight && lightConfig.enabled) {
+    // 更新现有光源
+    existingLight.intensity = lightConfig.intensity;
+    if (existingLight instanceof THREE.Light && 'color' in existingLight) {
+      (existingLight as any).color.set(lightConfig.color);
+    }
+    
+    if ('position' in existingLight && lightConfig.position) {
+      existingLight.position.set(
+        lightConfig.position.x,
+        lightConfig.position.y,
+        lightConfig.position.z
+      );
+    }
+    
+    // 更新方向光和聚光灯的目标
+    if ((existingLight instanceof THREE.DirectionalLight || existingLight instanceof THREE.SpotLight) && lightConfig.target) {
+      existingLight.target.position.set(
+        lightConfig.target.x,
+        lightConfig.target.y,
+        lightConfig.target.z
+      );
+    }
+    
+    // 更新聚光灯特有属性
+    if (existingLight instanceof THREE.SpotLight) {
+      if (lightConfig.angle !== undefined) existingLight.angle = lightConfig.angle;
+      if (lightConfig.penumbra !== undefined) existingLight.penumbra = lightConfig.penumbra;
+      if (lightConfig.decay !== undefined) existingLight.decay = lightConfig.decay;
+      if (lightConfig.distance !== undefined) existingLight.distance = lightConfig.distance;
+    }
+    
+    // 更新点光源特有属性
+    if (existingLight instanceof THREE.PointLight) {
+      if (lightConfig.decay !== undefined) existingLight.decay = lightConfig.decay;
+      if (lightConfig.distance !== undefined) existingLight.distance = lightConfig.distance;
+    }
+  }
+}
+
 // 设置窗口通信事件监听
 async function setupEventListeners() {
   // 初始化配置同步
   await modelConfigStore.initConfigSync();
 
   // 光源配置变更
-  const unlistenLight = await windowComm.onConfigUpdate(ModelConfigEvents.LIGHT_CHANGED, (config) => {
-    if (ambientLight && directionalLight) {
-      // 更新光源强度和颜色
-      ambientLight.intensity = Number(config.lightIntensity);
-      ambientLight.color.set(config.lightColor);
-
-      directionalLight.intensity = Number(config.lightIntensity);
-      directionalLight.color.set(config.lightColor);
-
-      // 更新光源位置
-      directionalLight.position.set(Number(config.lightPosition.x), Number(config.lightPosition.y), Number(config.lightPosition.z));
-    }
+  const unlistenLight = await windowComm.onConfigUpdate(ModelConfigEvents.LIGHTS_CHANGED, (config) => {
+    // 重新创建所有光源
+    createLightsFromConfig();
   });
   unlistenFunctions.push(unlistenLight);
 
