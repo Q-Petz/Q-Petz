@@ -3,7 +3,7 @@
     <h1>模型参数配置</h1>
     
     <div class="config-grid">
-      <div class="config-card">
+      <div class="config-card lights-card">
       <div class="card-header">
         <div class="header-icon light-icon"></div>
         <h2>光源配置</h2>
@@ -688,93 +688,28 @@ onUnmounted(() => {
   }
 
   .config-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    flex: 1;
-    overflow-y: auto;
-    padding-bottom: 16px;
-    max-height: calc(100vh - 180px);
-  }
-
-  @media (min-width: 768px) {
-    .config-grid {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 18px;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .config-grid {
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-    }
-  }
-
-  @media (min-width: 1440px) {
-    .config-grid {
-      grid-template-columns: repeat(4, 1fr);
-      gap: 22px;
-    }
-  }
-
-  @media (min-width: 1920px) {
-    .config-grid {
-      grid-template-columns: repeat(5, 1fr);
-      gap: 24px;
-    }
-  }
-
-  @media (min-width: 2560px) {
-    .config-grid {
-      grid-template-columns: repeat(6, 1fr);
-      gap: 28px;
-    }
+    display: flex !important;
+    flex-direction: column;
+    gap: 24px;
   }
 
   .config-card {
-    background-color: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    overflow: visible;
-    transition: box-shadow 0.3s;
+    width: 100% !important;
+  }
+
+  .config-card:not(.lights-card) .config-content {
     display: flex;
-    flex-direction: column;
-    margin-bottom: 0;
-    height: fit-content;
+    flex-wrap: wrap;
+    gap: 16px;
   }
 
-  .config-card:hover {
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  .config-card:not(.lights-card) .config-item {
+    flex: 1 1 240px;
+    min-width: 240px;
   }
 
-  /* 让光源配置卡片跨越多列 */
-  .config-card:first-child {
-    grid-column: 1 / -1;
-  }
-
-  @media (min-width: 768px) {
-    .config-card:first-child {
-      grid-column: span 2;
-    }
-  }
-
-  @media (min-width: 1440px) {
-    .config-card:first-child {
-      grid-column: span 3;
-    }
-  }
-
-  @media (min-width: 1920px) {
-    .config-card:first-child {
-      grid-column: span 4;
-    }
-  }
-
-  @media (min-width: 2560px) {
-    .config-card:first-child {
-      grid-column: span 5;
-    }
+  .action-buttons {
+    margin-top: 40px;
   }
 
   .card-header {
@@ -916,9 +851,9 @@ onUnmounted(() => {
 
   .config-content {
     padding: 16px;
-    overflow-y: auto;
+    overflow-y: visible;
     flex: 1;
-    max-height: 60vh;
+    max-height: none;
   }
 
   @media (min-width: 768px) {
@@ -935,12 +870,12 @@ onUnmounted(() => {
 
   /* 对于光源配置，允许更高的高度 */
   .config-card:first-child .config-content {
-    max-height: 70vh;
+    max-height: none;
   }
 
   @media (min-width: 1920px) {
     .config-card:first-child .config-content {
-      max-height: 75vh;
+      max-height: none;
     }
   }
 
@@ -1395,4 +1330,27 @@ onUnmounted(() => {
     background-color: #1a73e8;
     border-radius: 50%;
   }
+
+  /* === 双栏布局优化 === */
+  /* 移除默认首列跨越设置 */
+  .config-card.lights-card {
+    grid-column: 1 / span 1 !important;
+  }
+  .config-card:not(.lights-card) {
+    grid-column: 2 / span 1 !important;
+  }
+
+  /* 中等及以上屏幕：固定右侧窄栏 */
+  @media (min-width: 768px) {
+    .config-grid {
+      grid-template-columns: 1fr 320px !important;
+    }
+  }
+
+  @media (min-width: 1440px) {
+    .config-grid {
+      grid-template-columns: 1fr 360px !important;
+    }
+  }
+  /* === End === */
 </style>
